@@ -1191,7 +1191,8 @@ body::before {
   border: 1px solid rgba(255, 255, 255, 0.05);
   font-size: 0.82rem;
   opacity: 0.6;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, background 0.2s;
+  cursor: pointer;
 }
 
 .history-entry:hover {

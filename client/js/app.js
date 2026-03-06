@@ -1059,13 +1059,37 @@ function appendHistory(original, translated, direction) {
   if (!log || !original || original === 'Hold mic to speak') return;
   var entry = document.createElement('div');
   entry.className = 'history-entry';
+  entry.title = "Click to replay audio";
   var fromLabel = (direction.from || 'en').toUpperCase();
   var toLabel = (direction.to || 'es').toUpperCase();
   entry.innerHTML = `
     <div class="hist-original">${fromLabel}: ${original}</div>
     <div class="hist-translated">${toLabel}: ${translated}</div>
-    <div class="hist-meta">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+    <div class="hist-meta">
+      ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      <span style="float:right; color:var(--accent); display:flex; align-items:center; gap:0.25rem;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor" /></svg>
+        <span>Replay</span>
+      </span>
+    </div>
   `;
+
+  entry.addEventListener('click', function () {
+    if (!state.settings || state.settings.tts === false) return;
+
+    // Animate the background slightly to show it was clicked
+    entry.style.background = 'rgba(255, 255, 255, 0.08)';
+    setTimeout(function () { entry.style.background = 'rgba(255, 255, 255, 0.02)'; }, 200);
+
+    // Also restore the text to the main view when replaying history
+    var origNode = document.getElementById('original-text');
+    var transNode = document.getElementById('translated-text');
+    if (origNode) origNode.textContent = original;
+    if (transNode) transNode.textContent = translated;
+
+    speakTranslation(translated, direction.to || 'es');
+  });
+
   log.appendChild(entry);
   // Keep only last 20 entries
   while (log.children.length > 20) log.removeChild(log.firstChild);
