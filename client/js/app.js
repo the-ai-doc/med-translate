@@ -179,15 +179,26 @@ function updatePinState() {
 }
 
 let ttsInitialized = false;
+let audioUnlocked = false;
+
 function unlockAudio() {
-  if (ttsInitialized || !('speechSynthesis' in window)) return;
-  var utterance = new SpeechSynthesisUtterance(' '); // Space, not empty string
+  if (audioUnlocked || !('speechSynthesis' in window)) return;
+
+  // Set the flag immediately to prevent duplicate unlock attempts
+  audioUnlocked = true;
+
+  var utterance = new SpeechSynthesisUtterance('a'); // A short sound instead of space to ensure WebKit fires it
   utterance.volume = 0;
   utterance.rate = 10;
+
+  utterance.onend = function () {
+    ttsInitialized = true;
+    console.log('Audio context formally unlocked');
+  };
+
   speechSynthesis.speak(utterance);
-  ttsInitialized = true;
-  console.log('Audio context unlocked');
 }
+
 // Attach globally to capture the very first user interaction
 document.addEventListener('touchstart', unlockAudio, { once: true, capture: true });
 document.addEventListener('touchend', unlockAudio, { once: true, capture: true });
@@ -811,8 +822,8 @@ function playBrowserVoice(text, lang) {
   if (!('speechSynthesis' in window)) { setStatus('ready'); return; }
 
   // Safeguard: Wait for the queue to actually have something before blindly canceling.
-  // iOS 15/16/17 will crash the speech engine if cancel() is called excessively while idle.
-  if (speechSynthesis.speaking || speechSynthesis.pending) {
+  // CRITICAL: Do NOT cancel if ttsInitialized is false, because that means the unlock utterance is still actively playing/pending!
+  if (ttsInitialized && (speechSynthesis.speaking || speechSynthesis.pending)) {
     speechSynthesis.cancel();
   }
 
