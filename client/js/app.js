@@ -26,10 +26,11 @@ var LANGUAGES = {
 
 var state = {
   screen: 'login',
-  specialty: null,
+  specialty: 'anesthesia',
   pin: '',
-  selectedLang: null,
-  direction: { from: 'en', to: null },
+  selectedLang: 'es',
+  targetLocale: 'es-US',
+  direction: { from: 'en', to: 'es' },
   session: { id: null, active: false },
   recognition: null,
   isRecording: false,
@@ -77,8 +78,8 @@ var INTERVIEW_FLOWS = {
 };
 var INTERVIEW_QUESTIONS = INTERVIEW_FLOWS.preop;
 
-var loginScreen, specialtyScreen, setupScreen, validationScreen, sessionScreen, pinDigits, loginBtn;
-var langCards, startBtn, specialtyCards, confirmSpecialtyBtn;
+var loginScreen, sessionScreen, pinDigits, loginBtn;
+var langCards, specialtyCards;
 var connectionDot, sessionTimer, activeFrom, activeTo;
 var waveformStatus, statusText;
 var originalText, translatedText, micToggle, toastEl;
@@ -86,18 +87,17 @@ var sliderTrack, sliderHint, sliderLabelLeft, sliderLabelRight;
 var interviewControls, startInterviewBtn, interviewNextBtn, interviewSkipBtn;
 var summaryScreen, summaryContent, closeSummaryBtn;
 
+// Context Drawer UI
+var contextPillBtn, contextDrawer, contextDrawerOverlay, contextCloseBtn;
+var pillFlagImg, pillLangName, pillSpecialtyIcon, pillSpecialtyName;
+
 function cacheDom() {
   loginScreen = document.querySelector('#login-screen');
-  specialtyScreen = document.querySelector('#specialty-screen');
-  setupScreen = document.querySelector('#setup-screen');
-  validationScreen = document.querySelector('#validation-screen');
   sessionScreen = document.querySelector('#session-screen');
   pinDigits = document.querySelectorAll('.pin-digit');
   loginBtn = document.querySelector('#login-btn');
   specialtyCards = document.querySelectorAll('.specialty-card');
-  confirmSpecialtyBtn = document.querySelector('#confirm-specialty-btn');
   langCards = document.querySelectorAll('.lang-flag-card');
-  startBtn = document.querySelector('#start-session-btn');
   connectionDot = document.querySelector('#connection-dot');
   sessionTimer = document.querySelector('#session-timer');
   waveformStatus = document.querySelector('#waveform-status');
@@ -119,14 +119,21 @@ function cacheDom() {
   summaryScreen = document.querySelector('#summary-screen');
   summaryContent = document.querySelector('#summary-content');
   closeSummaryBtn = document.querySelector('#close-summary-btn');
+
+  // Context UI
+  contextPillBtn = document.querySelector('#context-pill-btn');
+  contextDrawer = document.querySelector('#context-drawer');
+  contextDrawerOverlay = document.querySelector('#context-drawer-overlay');
+  contextCloseBtn = document.querySelector('#context-close-btn');
+  pillFlagImg = document.querySelector('#pill-flag-img');
+  pillLangName = document.querySelector('#pill-lang-name');
+  pillSpecialtyIcon = document.querySelector('#pill-specialty-icon');
+  pillSpecialtyName = document.querySelector('#pill-specialty-name');
 }
 
 function showScreen(name) {
   state.screen = name;
   if (loginScreen) loginScreen.classList.toggle('hidden', name !== 'login');
-  if (specialtyScreen) specialtyScreen.classList.toggle('hidden', name !== 'specialty');
-  if (setupScreen) setupScreen.classList.toggle('hidden', name !== 'setup');
-  if (validationScreen) validationScreen.classList.toggle('hidden', name !== 'validation');
   if (sessionScreen) sessionScreen.classList.toggle('hidden', name !== 'session');
 
   // Push natively into the device history stack to intercept back swipes
@@ -204,32 +211,60 @@ document.addEventListener('click', unlockAudio, { once: true, capture: true });
 function handleLogin() {
   if (state.pin.length === 6) {
     showToast('Authenticated', 'success');
-    setTimeout(function () { showScreen('specialty'); }, 300);
+    setTimeout(function () { startSession(); }, 300);
   } else {
     showToast('Enter a 6-digit PIN');
   }
 }
 
-/* ── Specialty Select ── */
-function initSpecialtySelect() {
-  if (!specialtyCards || !confirmSpecialtyBtn) return;
+/* ── Context Drawer & Setup ── */
+function initContextDrawer() {
+  // Pre-select initial visual states for language and specialty
+  var esCard = Array.from(langCards).find(c => c.dataset.lang === 'es');
+  if (esCard) esCard.classList.add('selected');
+
+  var anesCard = Array.from(specialtyCards).find(c => c.dataset.specialty === 'anesthesia');
+  if (anesCard) anesCard.classList.add('selected');
+
+  if (contextPillBtn && contextDrawer && contextDrawerOverlay) {
+    contextPillBtn.addEventListener('click', function () {
+      contextDrawer.classList.remove('hidden');
+      contextDrawerOverlay.classList.remove('hidden');
+    });
+
+    function closeDrawer() {
+      contextDrawer.classList.add('hidden');
+      contextDrawerOverlay.classList.add('hidden');
+    }
+
+    if (contextCloseBtn) contextCloseBtn.addEventListener('click', closeDrawer);
+    contextDrawerOverlay.addEventListener('click', closeDrawer);
+  }
+
+  // Specialty Selection
   specialtyCards.forEach(function (card) {
     card.addEventListener('click', function () {
       specialtyCards.forEach(function (c) { c.classList.remove('selected'); });
       card.classList.add('selected');
       state.specialty = card.dataset.specialty;
-      confirmSpecialtyBtn.disabled = false;
+
+      var specialtyName = card.querySelector('span').textContent;
+      var svgHtml = card.querySelector('svg').outerHTML;
+
+      if (pillSpecialtyName) pillSpecialtyName.textContent = specialtyName;
+      if (pillSpecialtyIcon) pillSpecialtyIcon.outerHTML = svgHtml.replace('<svg', '<svg id="pill-specialty-icon" width="14" height="14"');
+      pillSpecialtyIcon = document.querySelector('#pill-specialty-icon'); // Re-cache the newly swapped SVG
+
+      updateDynamicUI();
+      // Auto-close drawer slightly after clicking to let user see selection
+      setTimeout(function () {
+        contextDrawer.classList.add('hidden');
+        contextDrawerOverlay.classList.add('hidden');
+      }, 350);
     });
   });
-  confirmSpecialtyBtn.addEventListener('click', function () {
-    if (state.specialty) {
-      showScreen('setup');
-    }
-  });
-}
 
-/* ── Language Select ── */
-function initLanguageSelect() {
+  // Language Selection
   langCards.forEach(function (card) {
     card.addEventListener('click', function () {
       langCards.forEach(function (c) { c.classList.remove('selected'); });
@@ -237,15 +272,27 @@ function initLanguageSelect() {
       state.selectedLang = card.dataset.lang;
       state.targetLocale = card.dataset.locale || card.dataset.lang;
       state.direction.to = card.dataset.lang;
-      startBtn.disabled = false;
 
-      var tb = document.getElementById('train-mode-toggle');
-      if (tb) {
-        tb.style.display = (state.selectedLang === 'ht') ? 'inline-block' : 'none';
-      }
+      var langName = card.querySelector('.lang-name').textContent;
+      var flagSrc = card.querySelector('img').src;
+
+      if (pillLangName) pillLangName.textContent = langName;
+      if (pillFlagImg) pillFlagImg.src = flagSrc;
+
+      updateDirectionFromSlider();
+      updateDirectionDisplay();
+      updateSliderLabels();
+
+      // Ensure the websocket protocol knows about the language change, but doing it natively seamlessly
+      showToast('Switched language to ' + langName, 'success');
+
+      // Auto-close drawer slightly after clicking
+      setTimeout(function () {
+        contextDrawer.classList.add('hidden');
+        contextDrawerOverlay.classList.add('hidden');
+      }, 350);
     });
   });
-  startBtn.addEventListener('click', startSession);
 }
 
 function generateUUID() {
@@ -1048,8 +1095,7 @@ function initReplay() {
 function init() {
   cacheDom();
   initPinInput();
-  initSpecialtySelect();
-  initLanguageSelect();
+  initContextDrawer();
   initSessionControls();
   initPresetsMenu();
   initInterviewFlow();
@@ -1057,7 +1103,7 @@ function init() {
   initSettings();
   initReplay();
   registerSW();
-  showScreen('specialty');
+  showScreen('login');
 }
 
 /* ── History Log ── */

@@ -184,149 +184,34 @@
     </div>
 
 
-    <!-- SCREEN 1.5: Specialty Select -->
-    <div id="specialty-screen" class="screen setup-screen hidden"
-      style="justify-content: flex-start; padding-top: 2.5rem;">
-      <div class="logo animate-slide-up" style="text-align:center; margin-bottom:1.5rem;">
-        <img src="/images/logo-wide.svg" alt="MedTranslate" style="max-width:300px;height:auto;margin:0 auto 1rem;">
-        <h1 style="font-size:1.1rem; font-weight:600; color:var(--text-secondary); margin-bottom:0.25rem;">Your
-          Specialty</h1>
-        <p class="subtitle" style="font-size:0.82rem;">Customize your clinical phrases</p>
-      </div>
-      <div class="card animate-slide-up-delay-1" style="width: 100%;">
-        <div class="specialty-grid" id="specialty-grid">
-          <div class="specialty-card" data-specialty="anesthesia" tabindex="0" role="button">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke-width="2">
+    <!-- SCREEN 3: Active Translation (fixed layout) -->
+    <div id="session-screen" class="screen session-screen hidden">
+      <!-- Top bar: Context Pill center, settings gear right -->
+      <div class="session-topbar">
+        <!-- Empty left placeholder to perfectly center the pill -->
+        <div style="width:32px; height:32px;"></div>
+
+        <div class="context-pill" id="context-pill-btn" role="button" tabindex="0">
+          <div class="context-pill-lang">
+            <img src="https://flagcdn.com/mx.svg" alt="Language" id="pill-flag-img">
+            <span id="pill-lang-name">Spanish</span>
+          </div>
+          <div class="context-pill-divider"></div>
+          <div class="context-pill-specialty">
+            <svg id="pill-specialty-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
               <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" />
               <line x1="16" y1="8" x2="2" y2="22" />
               <line x1="17.5" y1="15" x2="9" y2="6.5" />
             </svg>
-            <span style="font-weight: 500; font-size: 0.95rem;">Anesthesia</span>
+            <span id="pill-specialty-name">Anes</span>
           </div>
-          <div class="specialty-card" data-specialty="er" tabindex="0" role="button">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke-width="2">
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
-            <span style="font-weight: 500; font-size: 0.95rem;">Emergency (ER)</span>
-          </div>
-          <div class="specialty-card" data-specialty="pediatrics" tabindex="0" role="button">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke-width="2">
-              <circle cx="12" cy="5" r="3" />
-              <path d="M7 22v-6a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v6" />
-              <path d="M12 9v4" />
-              <line x1="9" y1="13" x2="15" y2="13" />
-            </svg>
-            <span style="font-weight: 500; font-size: 0.95rem;">Pediatrics</span>
-          </div>
-          <div class="specialty-card" data-specialty="general" tabindex="0" role="button">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <path d="M14 2v6h6" />
-              <path d="M12 18v-6" />
-              <path d="M9 15h6" />
-            </svg>
-            <span style="font-weight: 500; font-size: 0.95rem;">General Med</span>
-          </div>
-        </div>
-        <button id="confirm-specialty-btn" class="btn btn-primary" style="margin-top: 1.5rem;"
-          disabled><span>Continue</span></button>
-      </div>
-    </div>
-
-    <!-- SCREEN 2: Language Setup -->
-    <div id="setup-screen" class="screen setup-screen hidden" style="justify-content: flex-start; padding-top: 2.5rem;">
-      <div class="logo animate-slide-up" style="margin-bottom:1.5rem;">
-        <div class="logo-icon logo-icon-lang" style="display:none;"></div>
-        <img src="/images/logo-wide.svg" alt="MedTranslate" style="max-width:300px;height:auto;margin:0 auto 1rem;">
-        <h1 style="font-size:1.1rem; font-weight:600; color:var(--text-secondary); margin-bottom:0.25rem;">Select
-          Language</h1>
-        <p class="subtitle" style="font-size:0.82rem;">Choose the patient's primary language</p>
-
-
-      </div>
-      <div class="card animate-slide-up-delay-1">
-        <div class="lang-carousel" id="language-grid">
-          <div class="lang-flag-card" data-lang="es" data-locale="es-US" tabindex="0" role="button">
-            <div class="flag-circle"><img src="https://flagcdn.com/mx.svg" alt="Spanish"></div>
-            <span class="lang-name">Spanish</span>
-          </div>
-          <div class="lang-flag-card" data-lang="ht" data-locale="ht-HT" tabindex="0" role="button">
-            <div class="flag-circle"><img src="https://flagcdn.com/ht.svg" alt="Haitian Creole"></div>
-            <span class="lang-name">Haitian Creole</span>
-          </div>
-          <div class="lang-flag-card" data-lang="fr" data-locale="fr-FR" tabindex="0" role="button">
-            <div class="flag-circle"><img src="https://flagcdn.com/fr.svg" alt="French"></div>
-            <span class="lang-name">French</span>
-          </div>
-          <div class="lang-flag-card" data-lang="pt" data-locale="pt-BR" tabindex="0" role="button">
-            <div class="flag-circle"><img src="https://flagcdn.com/br.svg" alt="Portuguese"></div>
-            <span class="lang-name">Portuguese</span>
-          </div>
-          <div class="lang-flag-card" data-lang="ru" data-locale="ru-RU" tabindex="0" role="button">
-            <div class="flag-circle"><img src="https://flagcdn.com/ru.svg" alt="Russian"></div>
-            <span class="lang-name">Russian</span>
-          </div>
-          <div class="lang-flag-card" data-lang="zh" data-locale="zh-CN" tabindex="0" role="button">
-            <div class="flag-circle"><img src="https://flagcdn.com/cn.svg" alt="Mandarin"></div>
-            <span class="lang-name">Mandarin</span>
-          </div>
-          <div class="lang-flag-card" data-lang="ar" data-locale="ar-SA" tabindex="0" role="button">
-            <div class="flag-circle"><img src="https://flagcdn.com/sa.svg" alt="Arabic"></div>
-            <span class="lang-name">Arabic</span>
-          </div>
-          <div class="lang-flag-card" data-lang="vi" data-locale="vi-VN" tabindex="0" role="button">
-            <div class="flag-circle"><img src="https://flagcdn.com/vn.svg" alt="Vietnamese"></div>
-            <span class="lang-name">Vietnamese</span>
-          </div>
-          <div class="lang-flag-card" data-lang="tl" data-locale="fil-PH" tabindex="0" role="button">
-            <div class="flag-circle"><img src="https://flagcdn.com/ph.svg" alt="Tagalog"></div>
-            <span class="lang-name">Tagalog</span>
-          </div>
-        </div><button id="start-session-btn" class="btn btn-primary" disabled><span>Start Session</span></button>
-      </div>
-    </div>
-
-    <!-- SCREEN 4: Voice Training Portal -->
-    <div id="training-screen" class="screen hidden">
-      <div class="session-topbar" style="justify-content: space-between;">
-        <div class="language-badge">Training Mode</div>
-        <button class="end-btn" id="exit-training-btn">Exit</button>
-      </div>
-
-      <div class="card animate-slide-up-delay-1" style="margin-top: 2rem; text-align: center;">
-        <h2 style="color: var(--text-primary); margin-bottom: 0.5rem; font-size: 1.2rem;">Read Aloud in <span
-            id="training-lang-display" style="color:var(--accent);">—</span></h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Press and hold the microphone to
-          record
-          your voice.</p>
-
-        <div
-          style="background: rgba(10,14,26,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem; min-height: 100px; display: flex; align-items: center; justify-content: center;">
-          <h3 id="training-phrase-text"
-            style="color: var(--accent); font-size: 1.3rem; font-weight: 500; line-height: 1.4;">
-            "Wait for phrase..."</h3>
-        </div>
-
-        <button id="training-record-btn" class="btn-mic"
-          style="margin: 0 auto; width: 80px; height: 80px; border-radius: 50%; background: #2a354d; border: 2px solid #5299e0; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2">
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            <line x1="12" y1="19" x2="12" y2="22" />
-            <line x1="8" y1="22" x2="16" y2="22" />
+          <svg class="context-pill-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9" />
           </svg>
-        </button>
-        <p id="training-status-text" style="color: var(--text-muted); margin-top: 1rem; font-size: 0.85rem;">Hold to
-          record</p>
-      </div>
-    </div>
-    <!-- SCREEN 3: Active Translation (fixed layout) -->
-    <div id="session-screen" class="screen session-screen hidden">
-      <!-- Top bar: logo left, settings gear right -->
-      <div class="session-topbar">
-        <div style="display:flex; align-items:center; gap:0.5rem;">
-          <img src="/images/logo-wide.svg" alt="MedTranslate" style="height:28px; width:auto;">
         </div>
+
         <button id="settings-toggle-btn"
           style="background:none; border:none; color:var(--accent); cursor:pointer; padding:6px; display:flex; align-items:center;"
           aria-label="Settings">
@@ -520,6 +405,108 @@
           </div>
         </div>
         <div class="slider-hint" id="slider-hint">Hold to speak (slide to change target language)</div>
+      </div>
+
+      <!-- Unified Context Drawer Overlay & Sheet -->
+      <div id="context-drawer-overlay" class="drawer-overlay hidden"></div>
+      <div id="context-drawer" class="bottom-drawer hidden">
+        <div class="drawer-header">
+          <h3 style="margin:0; font-size:1.1rem; font-weight:600; color:var(--text-primary);">Session Context</h3>
+          <button id="context-close-btn"
+            style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:4px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="drawer-content">
+          <div class="drawer-section">
+            <h4 style="margin:0 0 0.75rem 0; font-size:0.9rem; color:var(--text-secondary); font-weight:500;">Target
+              Language</h4>
+            <div class="lang-carousel" id="language-grid" style="margin-bottom:0;">
+              <div class="lang-flag-card" data-lang="es" data-locale="es-US" tabindex="0" role="button">
+                <div class="flag-circle"><img src="https://flagcdn.com/mx.svg" alt="Spanish"></div>
+                <span class="lang-name">Spanish</span>
+              </div>
+              <div class="lang-flag-card" data-lang="ht" data-locale="ht-HT" tabindex="0" role="button">
+                <div class="flag-circle"><img src="https://flagcdn.com/ht.svg" alt="Haitian Creole"></div>
+                <span class="lang-name">Haitian Creole</span>
+              </div>
+              <div class="lang-flag-card" data-lang="fr" data-locale="fr-FR" tabindex="0" role="button">
+                <div class="flag-circle"><img src="https://flagcdn.com/fr.svg" alt="French"></div>
+                <span class="lang-name">French</span>
+              </div>
+              <div class="lang-flag-card" data-lang="pt" data-locale="pt-BR" tabindex="0" role="button">
+                <div class="flag-circle"><img src="https://flagcdn.com/br.svg" alt="Portuguese"></div>
+                <span class="lang-name">Portuguese</span>
+              </div>
+              <div class="lang-flag-card" data-lang="ru" data-locale="ru-RU" tabindex="0" role="button">
+                <div class="flag-circle"><img src="https://flagcdn.com/ru.svg" alt="Russian"></div>
+                <span class="lang-name">Russian</span>
+              </div>
+              <div class="lang-flag-card" data-lang="zh" data-locale="zh-CN" tabindex="0" role="button">
+                <div class="flag-circle"><img src="https://flagcdn.com/cn.svg" alt="Mandarin"></div>
+                <span class="lang-name">Mandarin</span>
+              </div>
+              <div class="lang-flag-card" data-lang="ar" data-locale="ar-SA" tabindex="0" role="button">
+                <div class="flag-circle"><img src="https://flagcdn.com/sa.svg" alt="Arabic"></div>
+                <span class="lang-name">Arabic</span>
+              </div>
+              <div class="lang-flag-card" data-lang="vi" data-locale="vi-VN" tabindex="0" role="button">
+                <div class="flag-circle"><img src="https://flagcdn.com/vn.svg" alt="Vietnamese"></div>
+                <span class="lang-name">Vietnamese</span>
+              </div>
+              <div class="lang-flag-card" data-lang="tl" data-locale="fil-PH" tabindex="0" role="button">
+                <div class="flag-circle"><img src="https://flagcdn.com/ph.svg" alt="Tagalog"></div>
+                <span class="lang-name">Tagalog</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="drawer-section" style="margin-top: 1.5rem;">
+            <h4 style="margin:0 0 0.75rem 0; font-size:0.9rem; color:var(--text-secondary); font-weight:500;">Clinical
+              Specialty</h4>
+            <div class="specialty-grid" id="specialty-grid"
+              style="grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
+              <div class="specialty-card" data-specialty="anesthesia" tabindex="0" role="button"
+                style="padding: 0.75rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                  <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" />
+                  <line x1="16" y1="8" x2="2" y2="22" />
+                  <line x1="17.5" y1="15" x2="9" y2="6.5" />
+                </svg>
+                <span style="font-weight: 500; font-size: 0.85rem; margin-top:0.25rem;">Anesthesia</span>
+              </div>
+              <div class="specialty-card" data-specialty="er" tabindex="0" role="button" style="padding: 0.75rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                </svg>
+                <span style="font-weight: 500; font-size: 0.85rem; margin-top:0.25rem;">Emergency</span>
+              </div>
+              <div class="specialty-card" data-specialty="pediatrics" tabindex="0" role="button"
+                style="padding: 0.75rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                  <circle cx="12" cy="5" r="3" />
+                  <path d="M7 22v-6a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v6" />
+                  <path d="M12 9v4" />
+                  <line x1="9" y1="13" x2="15" y2="13" />
+                </svg>
+                <span style="font-weight: 500; font-size: 0.85rem; margin-top:0.25rem;">Pediatrics</span>
+              </div>
+              <div class="specialty-card" data-specialty="general" tabindex="0" role="button" style="padding: 0.75rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 2v6h6" />
+                  <path d="M12 18v-6" />
+                  <path d="M9 15h6" />
+                </svg>
+                <span style="font-weight: 500; font-size: 0.85rem; margin-top:0.25rem;">General</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
