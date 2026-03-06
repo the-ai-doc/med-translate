@@ -1100,12 +1100,12 @@ function appendHistory(original, translated, direction) {
     speakTranslation(translated, direction.to || 'es');
   });
 
-  log.appendChild(entry);
+  log.prepend(entry);
   // Keep only last 20 entries
-  while (log.children.length > 20) log.removeChild(log.firstChild);
-  // Scroll to bottom of transcript area
+  while (log.children.length > 20) log.removeChild(log.lastChild);
+  // Scroll to top of transcript area to see the newest entry
   var ta = document.querySelector('.transcript-area');
-  if (ta) ta.scrollTop = ta.scrollHeight;
+  if (ta) ta.scrollTop = 0;
 }
 
 /* ── Settings Panel ── */
