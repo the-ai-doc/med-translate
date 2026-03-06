@@ -178,7 +178,6 @@ function updatePinState() {
   loginBtn.disabled = state.pin.length < 6;
 }
 
-let ttsInitialized = false;
 let audioUnlocked = false;
 
 function unlockAudio() {
@@ -187,20 +186,18 @@ function unlockAudio() {
   // Set the flag immediately to prevent duplicate unlock attempts
   audioUnlocked = true;
 
-  var utterance = new SpeechSynthesisUtterance('a'); // A short sound instead of space to ensure WebKit fires it
+  // iOS Safari requires a full reset and an invisible utterance
+  speechSynthesis.cancel();
+  var utterance = new SpeechSynthesisUtterance(' ');
   utterance.volume = 0;
-  utterance.rate = 10;
-
-  utterance.onend = function () {
-    ttsInitialized = true;
-    console.log('Audio context formally unlocked');
-  };
+  utterance.rate = 1; // Normal rate to avoid iOS aborting it as an error
 
   speechSynthesis.speak(utterance);
+  console.log('Audio context formally unlocked');
 }
 
-// Attach globally to capture the very first user interaction
-document.addEventListener('touchstart', unlockAudio, { once: true, capture: true });
+// Attach globally to capture the very first user interaction.
+// iOS specifically favors 'touchend' over 'touchstart' for media unlocking.
 document.addEventListener('touchend', unlockAudio, { once: true, capture: true });
 document.addEventListener('click', unlockAudio, { once: true, capture: true });
 
@@ -821,9 +818,8 @@ function handlePostSpeech() {
 function playBrowserVoice(text, lang) {
   if (!('speechSynthesis' in window)) { setStatus('ready'); return; }
 
-  // Safeguard: Wait for the queue to actually have something before blindly canceling.
-  // CRITICAL: Do NOT cancel if ttsInitialized is false, because that means the unlock utterance is still actively playing/pending!
-  if (ttsInitialized && (speechSynthesis.speaking || speechSynthesis.pending)) {
+  // Flush the queue. This is required on iOS to prevent the engine from freezing.
+  if (speechSynthesis.speaking || speechSynthesis.pending) {
     speechSynthesis.cancel();
   }
 
