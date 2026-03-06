@@ -71,14 +71,18 @@ html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
 body {
   font-family: var(--font-sans);
   background: var(--bg-primary);
   color: var(--text-primary);
-  min-height: 100dvh;
-  overflow-x: hidden;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
   -webkit-font-smoothing: antialiased;
   /* Prevent Android Chrome pull-to-navigate/pull-to-refresh */
   overscroll-behavior: none;

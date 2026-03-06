@@ -1051,6 +1051,14 @@ function init() {
   initReplay();
   registerSW();
 
+  // Pre-load voices on init to eliminate first-playback audio latency
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.getVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = function () { window.speechSynthesis.getVoices(); };
+    }
+  }
+
   // Immediately start session instead of a login screen
   startSession();
 }
