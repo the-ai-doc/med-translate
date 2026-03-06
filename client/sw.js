@@ -1,5 +1,5 @@
 // MedTranslate Service Worker — network-first for API, cache-first for static
-const CACHE_NAME = 'medtranslate-v31';
+const CACHE_NAME = 'medtranslate-v32';
 const STATIC_ASSETS = [
   '/', '/index.html', '/styles/app.css?direct', '/js/app.js',
   '/manifest.json', '/icons/icon.svg'
