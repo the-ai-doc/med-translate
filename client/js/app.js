@@ -261,8 +261,6 @@ function generateUUID() {
 }
 
 async function startSession() {
-  startBtn.disabled = true;
-  startBtn.innerHTML = '<div class="spinner"></div>';
   try {
     state.session.id = generateUUID();
     state.session.active = true;
@@ -279,13 +277,8 @@ async function startSession() {
     updateInterviewButtonLabels();
     sessionTimer.textContent = '0:00';
     showToast('Connected! Hold to talk (slide to change language)', 'success');
-    // Reset button for next use
-    startBtn.innerHTML = '<span>Start Session</span>';
-    startBtn.disabled = false;
   } catch (err) {
-    showToast('Failed: ' + err.message);
-    startBtn.innerHTML = '<span>Start Session</span>';
-    startBtn.disabled = false;
+    showToast('Failed to connect: ' + err.message);
     state.session.active = false;
   }
 }
@@ -300,9 +293,9 @@ function endSession() {
   }
   state.ws = { socket: null, reconnectAttempts: 0, connected: false };
   showToast('Session ended', 'success');
-  startBtn.innerHTML = '<span>Start Session</span>';
-  startBtn.disabled = false;
-  showScreen('setup');
+
+  // If the user wants to truly end and restart, just reset the session internally since setup screens are gone
+  startSession();
 }
 
 /* ── Recording Timer ── */
