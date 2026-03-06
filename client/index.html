@@ -189,7 +189,8 @@
       style="justify-content: flex-start; padding-top: 2.5rem;">
       <div class="logo animate-slide-up" style="text-align:center; margin-bottom:1.5rem;">
         <img src="/images/logo-wide.svg" alt="MedTranslate" style="max-width:300px;height:auto;margin:0 auto 1rem;">
-        <h1 style="font-size:1.1rem; font-weight:600; color:#94a3b8; margin-bottom:0.25rem;">Your Specialty</h1>
+        <h1 style="font-size:1.1rem; font-weight:600; color:var(--text-secondary); margin-bottom:0.25rem;">Your
+          Specialty</h1>
         <p class="subtitle" style="font-size:0.82rem;">Customize your clinical phrases</p>
       </div>
       <div class="card animate-slide-up-delay-1" style="width: 100%;">
@@ -237,7 +238,8 @@
       <div class="logo animate-slide-up" style="margin-bottom:1.5rem;">
         <div class="logo-icon logo-icon-lang" style="display:none;"></div>
         <img src="/images/logo-wide.svg" alt="MedTranslate" style="max-width:300px;height:auto;margin:0 auto 1rem;">
-        <h1 style="font-size:1.1rem; font-weight:600; color:#94a3b8; margin-bottom:0.25rem;">Select Language</h1>
+        <h1 style="font-size:1.1rem; font-weight:600; color:var(--text-secondary); margin-bottom:0.25rem;">Select
+          Language</h1>
         <p class="subtitle" style="font-size:0.82rem;">Choose the patient's primary language</p>
 
 
@@ -292,27 +294,30 @@
       </div>
 
       <div class="card animate-slide-up-delay-1" style="margin-top: 2rem; text-align: center;">
-        <h2 style="color: #fff; margin-bottom: 0.5rem; font-size: 1.2rem;">Read Aloud in <span
-            id="training-target-lang">Creole</span></h2>
-        <p style="color: #8da4c0; font-size: 0.9rem; margin-bottom: 1.5rem;">Press and hold the microphone to record
-          your translation.</p>
+        <h2 style="color: var(--text-primary); margin-bottom: 0.5rem; font-size: 1.2rem;">Read Aloud in <span
+            id="training-lang-display" style="color:var(--accent);">—</span></h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Press and hold the microphone to
+          record
+          your voice.</p>
 
         <div
           style="background: rgba(10,14,26,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem; min-height: 100px; display: flex; align-items: center; justify-content: center;">
-          <h3 id="training-phrase-text" style="color: #00f0ff; font-size: 1.3rem; font-weight: 500; line-height: 1.4;">
-            "I will perform a physical exam now."</h3>
+          <h3 id="training-phrase-text"
+            style="color: var(--accent); font-size: 1.3rem; font-weight: 500; line-height: 1.4;">
+            "Wait for phrase..."</h3>
         </div>
 
         <button id="training-record-btn" class="btn-mic"
           style="margin: 0 auto; width: 80px; height: 80px; border-radius: 50%; background: #2a354d; border: 2px solid #5299e0; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2">
             <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
             <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
             <line x1="12" y1="19" x2="12" y2="22" />
             <line x1="8" y1="22" x2="16" y2="22" />
           </svg>
         </button>
-        <p id="training-status-text" style="color: #8da4c0; margin-top: 1rem; font-size: 0.85rem;">Hold to record</p>
+        <p id="training-status-text" style="color: var(--text-muted); margin-top: 1rem; font-size: 0.85rem;">Hold to
+          record</p>
       </div>
     </div>
     <!-- SCREEN 3: Active Translation (fixed layout) -->
@@ -323,7 +328,7 @@
           <img src="/images/logo-wide.svg" alt="MedTranslate" style="height:28px; width:auto;">
         </div>
         <button id="settings-toggle-btn"
-          style="background:none; border:none; color:#5299e0; cursor:pointer; padding:6px; display:flex; align-items:center;"
+          style="background:none; border:none; color:var(--accent); cursor:pointer; padding:6px; display:flex; align-items:center;"
           aria-label="Settings">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="3" />
@@ -331,7 +336,6 @@
               d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
         </button>
-        <button class="end-btn" id="end-session-btn">End</button>
       </div>
 
       <!-- Hidden status elements (kept for JS compat) -->
@@ -348,8 +352,7 @@
       <!-- Scrollable transcript area -->
       <div class="transcript-area">
         <div class="transcript-bubble original-bubble" id="original-transcript">
-          <div class="source-label">ORIGINAL</div>
-          <div class="transcript-text" id="original-text">Slide mic &amp; hold to speak</div>
+          <div class="transcript-text" id="original-text">Hold mic to speak</div>
         </div>
         <div class="transcript-divider">
           <div class="divider-line"></div>
@@ -359,9 +362,17 @@
           </svg>
           <div class="divider-line"></div>
         </div>
-        <div class="transcript-bubble translation-bubble" id="translated-transcript">
-          <div class="source-label">TRANSLATION</div>
-          <div class="transcript-text" id="translated-text">&mdash;</div>
+        <div class="transcript-bubble translation-bubble" id="translated-transcript" title="Click to replay audio"
+          role="button" tabindex="0">
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <div class="source-label" style="margin-bottom: 0;">TRANSLATION</div>
+            <svg class="replay-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5">
+              <path d="M21 2v6h-6"></path>
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            </svg>
+          </div>
+          <div class="transcript-text" id="translated-text" style="margin-top: 0.625rem;">&mdash;</div>
         </div>
         <!-- Session history log — max-height capped, scrollable, never pushes main bubbles -->
         <div class="history-log" id="history-log" style="max-height:22vh; overflow-y:auto; flex-shrink:0;"></div>
@@ -392,7 +403,7 @@
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
                 <div class="preset-category-title" style="margin: 0;">Automated Workflows</div>
                 <button id="presets-close-btn"
-                  style="background: none; border: none; color: #8da4c0; cursor: pointer; padding: 4px;">
+                  style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="6 9 12 15 18 9" />
                   </svg>
@@ -468,11 +479,11 @@
 
         <!-- Manual text input -->
         <div class="manual-input-container"
-          style="display:flex; width: 100%; max-width: 320px; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0 1rem; box-sizing:border-box;">
+          style="display:flex; width: 100%; max-width: 320px; gap: 0.5rem; margin-bottom: 0.5rem; box-sizing:border-box;">
           <input type="text" id="manual-text-input" placeholder="Type to translate..." autocomplete="off"
-            style="flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(82, 153, 224, 0.3); color:#fff; padding:0.6rem 1rem; border-radius: 20px; outline:none; font-family:inherit; font-size: 0.95rem;">
+            style="flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border-accent); color:var(--text-primary); padding:0.6rem 1rem; border-radius: 20px; outline:none; font-family:inherit; font-size: 0.95rem;">
           <button id="manual-text-send-btn"
-            style="background:#06d6a0; border:none; width:40px; height:40px; border-radius:50%; color:#0a0e1a; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            style="background:var(--accent); border:none; width:40px; height:40px; border-radius:50%; color:var(--bg-primary); cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="22" y1="2" x2="11" y2="13"></line>
               <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
@@ -505,7 +516,7 @@
             </svg>
           </div>
         </div>
-        <div class="slider-hint" id="slider-hint">Slide to set direction, hold to speak</div>
+        <div class="slider-hint" id="slider-hint">Hold to speak (slide to change target language)</div>
       </div>
     </div>
 
@@ -513,7 +524,7 @@
     <div id="summary-screen" class="screen hidden"
       style="z-index: 200; background: rgba(6,8,15,0.95); position: fixed; inset: 0;">
       <div class="card animate-slide-up" style="max-height: 80vh; display: flex; flex-direction: column;">
-        <h2 style="color: #fff; margin-bottom: 0.5rem;">Interview Summary</h2>
+        <h2 style="color: var(--text-primary); margin-bottom: 0.5rem;">Interview Summary</h2>
         <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Translated responses from the
           patient</p>
 

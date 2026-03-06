@@ -81,7 +81,7 @@ var loginScreen, specialtyScreen, setupScreen, validationScreen, sessionScreen, 
 var langCards, startBtn, specialtyCards, confirmSpecialtyBtn;
 var connectionDot, sessionTimer, activeFrom, activeTo;
 var waveformStatus, statusText;
-var originalText, translatedText, micToggle, endSessionBtn, toastEl;
+var originalText, translatedText, micToggle, toastEl;
 var sliderTrack, sliderHint, sliderLabelLeft, sliderLabelRight;
 var interviewControls, startInterviewBtn, interviewNextBtn, interviewSkipBtn;
 var summaryScreen, summaryContent, closeSummaryBtn;
@@ -105,7 +105,6 @@ function cacheDom() {
   originalText = document.querySelector('#original-text');
   translatedText = document.querySelector('#translated-text');
   micToggle = document.querySelector('#mic-toggle');
-  endSessionBtn = document.querySelector('#end-session-btn');
   toastEl = document.querySelector('#toast');
   sliderTrack = document.querySelector('#slider-track');
   sliderHint = document.querySelector('#slider-hint');
@@ -178,6 +177,21 @@ function updatePinState() {
   state.pin = Array.from(pinDigits).map(function (d) { return d.value; }).join('');
   loginBtn.disabled = state.pin.length < 6;
 }
+
+let ttsInitialized = false;
+function unlockAudio() {
+  if (ttsInitialized || !('speechSynthesis' in window)) return;
+  var utterance = new SpeechSynthesisUtterance(' '); // Space, not empty string
+  utterance.volume = 0;
+  utterance.rate = 10;
+  speechSynthesis.speak(utterance);
+  ttsInitialized = true;
+  console.log('Audio context unlocked');
+}
+// Attach globally to capture the very first user interaction
+document.addEventListener('touchstart', unlockAudio, { once: true, capture: true });
+document.addEventListener('touchend', unlockAudio, { once: true, capture: true });
+document.addEventListener('click', unlockAudio, { once: true, capture: true });
 
 function handleLogin() {
   if (state.pin.length === 6) {
@@ -254,7 +268,7 @@ async function startSession() {
     updateDynamicUI();
     updateInterviewButtonLabels();
     sessionTimer.textContent = '0:00';
-    showToast('Connected! Slide mic & hold to talk', 'success');
+    showToast('Connected! Hold to talk (slide to change language)', 'success');
     // Reset button for next use
     startBtn.innerHTML = '<span>Start Session</span>';
     startBtn.disabled = false;
@@ -362,7 +376,7 @@ function snapSlider(side) {
 }
 
 const INSTRUCTIONS = {
-  en: "Slide mic & hold to speak",
+  en: "Hold mic to speak",
   es: "Deslice el micrófono y mantenga para hablar",
   ht: "Glise mikwo a ak kenbe pou pale",
   pt: "Deslize o microfone e segure para falar",
@@ -551,7 +565,6 @@ function initSlider() {
 
 /* ── Session Controls ── */
 function initSessionControls() {
-  endSessionBtn.addEventListener('click', function () { if (confirm('End session?')) endSession(); });
   initSlider();
 }
 
@@ -716,7 +729,10 @@ function connectWebSocket() {
             var origB = document.querySelector('#original-transcript');
             var transB = document.querySelector('#translated-transcript');
             if (origB) origB.classList.add('active');
-            if (transB) transB.classList.add('active');
+            if (transB) {
+              transB.dataset.originalText = origText;
+              transB.classList.add('active');
+            }
 
             // Append to history log
             appendHistory(origText, msg.text, state.direction);
@@ -793,10 +809,36 @@ function handlePostSpeech() {
 
 function playBrowserVoice(text, lang) {
   if (!('speechSynthesis' in window)) { setStatus('ready'); return; }
-  speechSynthesis.cancel();
+
+  // Safeguard: Wait for the queue to actually have something before blindly canceling.
+  // iOS 15/16/17 will crash the speech engine if cancel() is called excessively while idle.
+  if (speechSynthesis.speaking || speechSynthesis.pending) {
+    speechSynthesis.cancel();
+  }
+
   var utterance = new SpeechSynthesisUtterance(text);
   var langInfo = LANGUAGES[lang];
-  utterance.lang = langInfo ? langInfo.speechCode : lang;
+  var targetCode = langInfo ? langInfo.speechCode : lang;
+  utterance.lang = targetCode;
+
+  // Attempt to select a high-quality voice
+  var voices = speechSynthesis.getVoices();
+  if (voices.length > 0) {
+    // Filter voices matching our target language abbreviation (e.g. "en" or "es")
+    var matchingVoices = voices.filter(function (v) {
+      return v.lang.toLowerCase().startsWith(targetCode.split('-')[0].toLowerCase());
+    });
+
+    // Specifically target Apple's high-fidelity voices
+    var bestVoice = matchingVoices.find(function (v) { return v.name.includes('Premium') || v.name.includes('Enhanced'); })
+      || matchingVoices.find(function (v) { return v.name.includes('Siri'); })
+      || matchingVoices[0];
+
+    if (bestVoice) {
+      utterance.voice = bestVoice;
+    }
+  }
+
   utterance.rate = state.settings.speechRate || 0.9;
   utterance.pitch = 1.0;
   utterance.onend = handlePostSpeech;
@@ -923,13 +965,13 @@ function renderSummary() {
   summaryContent.innerHTML = '';
 
   if (state.interview.answers.length === 0) {
-    summaryContent.innerHTML = '<p style="color:#8da4c0;text-align:center;">No answers recorded.</p>';
+    summaryContent.innerHTML = '<p style="color:var(--text-muted);text-align:center;">No answers recorded.</p>';
   } else {
     state.interview.answers.forEach((ans, i) => {
       summaryContent.innerHTML += `
         <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 12px;">
           <div style="font-size: 0.8rem; color: var(--accent); margin-bottom: 0.4rem;">Q: ${INTERVIEW_QUESTIONS[i] || 'Question'}</div>
-          <div style="color: #fff;">A: ${ans}</div>
+          <div style="color: var(--text-primary);">A: ${ans}</div>
         </div>
       `;
     });
@@ -979,6 +1021,23 @@ function initManualInput() {
   }
 }
 
+function initReplay() {
+  var transBubble = document.getElementById('translated-transcript');
+  if (transBubble) {
+    transBubble.addEventListener('click', function () {
+      if (!state.settings || state.settings.tts === false) return; // Respect TTS mute
+      var tText = document.getElementById('translated-text').textContent;
+      // Do not replay if empty or placeholder dash
+      if (tText && tText.trim() !== '' && !tText.includes('—')) {
+        var oText = transBubble.dataset.originalText;
+        var origNode = document.getElementById('original-text');
+        if (oText && origNode) origNode.textContent = oText;
+        speakTranslation(tText, state.direction.to);
+      }
+    });
+  }
+}
+
 function init() {
   cacheDom();
   initPinInput();
@@ -989,6 +1048,7 @@ function init() {
   initInterviewFlow();
   initManualInput();
   initSettings();
+  initReplay();
   registerSW();
   showScreen('specialty');
 }
@@ -996,7 +1056,7 @@ function init() {
 /* ── History Log ── */
 function appendHistory(original, translated, direction) {
   var log = document.getElementById('history-log');
-  if (!log || !original || original === 'Slide mic & hold to speak') return;
+  if (!log || !original || original === 'Hold mic to speak') return;
   var entry = document.createElement('div');
   entry.className = 'history-entry';
   var fromLabel = (direction.from || 'en').toUpperCase();
@@ -1032,25 +1092,25 @@ function initSettings() {
   `;
   panel.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-      <div style="font-weight:700; font-size:1rem; color:#fff;">Settings</div>
-      <button id="settings-close-btn" style="background:none;border:none;color:#8da4c0;cursor:pointer;font-size:1.4rem;">&#x2715;</button>
+      <div style="font-weight:700; font-size:1rem; color:var(--text-primary);">Settings</div>
+      <button id="settings-close-btn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.4rem;">&#x2715;</button>
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; padding:0.75rem 0; border-bottom:1px solid rgba(255,255,255,0.06);">
-      <span style="color:#94a3b8; font-size:0.95rem;">Voice Playback (TTS)</span>
+      <span style="color:var(--text-secondary); font-size:0.95rem;">Voice Playback (TTS)</span>
       <label style="position:relative;display:inline-block;width:48px;height:26px;cursor:pointer;">
         <input type="checkbox" id="tts-toggle" checked style="opacity:0;width:0;height:0;">
-        <span id="tts-slider-vis" style="position:absolute;inset:0;border-radius:13px;background:#2a354d;transition:0.3s;">
+        <span id="tts-slider-vis" style="position:absolute;inset:0;border-radius:13px;background:rgba(255, 255, 255, 0.1);transition:0.3s;">
           <span style="position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:0.3s;" id="tts-knob"></span>
         </span>
       </label>
     </div>
     <div style="padding:0.75rem 0;">
       <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem;">
-        <span style="color:#94a3b8;font-size:0.95rem;">Speech Rate</span>
-        <span id="speech-rate-display" style="color:#06d6a0;font-size:0.9rem;font-weight:600;">1.0×</span>
+        <span style="color:var(--text-secondary);font-size:0.95rem;">Speech Rate</span>
+        <span id="speech-rate-display" style="color:var(--accent);font-size:0.9rem;font-weight:600;">1.0×</span>
       </div>
       <input type="range" id="speech-rate-slider" min="0.6" max="1.4" step="0.1" value="1.0"
-        style="width:100%;accent-color:#06d6a0;cursor:pointer;">
+        style="width:100%;accent-color:var(--accent);cursor:pointer;">
     </div>
   `;
   document.getElementById('app').appendChild(panel);
@@ -1065,14 +1125,14 @@ function initSettings() {
     panel.style.transform = 'translateY(0)';
     panel.style.opacity = '1';
     panel.style.pointerEvents = 'auto';
-    if (toggleBtn) toggleBtn.style.color = '#06d6a0';
+    if (toggleBtn) toggleBtn.style.color = 'var(--accent)';
   }
 
   function closeSettings() {
     panel.style.transform = 'translateY(100%)';
     panel.style.opacity = '0';
     panel.style.pointerEvents = 'none';
-    if (toggleBtn) toggleBtn.style.color = '#5299e0';
+    if (toggleBtn) toggleBtn.style.color = 'var(--text-muted)';
   }
 
   if (toggleBtn) toggleBtn.addEventListener('click', openSettings);
@@ -1090,8 +1150,11 @@ function initSettings() {
 
     if (ttsCheck) {
       ttsCheck.addEventListener('change', function () {
-        state.settings.ttsEnabled = this.checked;
-        if (visSlider) visSlider.style.background = this.checked ? '#06d6a0' : '#2a354d';
+        state.settings.tts = this.checked;
+        saveSettings();
+        var visSlider = document.getElementById('tts-slider-vis');
+        if (visSlider) visSlider.style.background = this.checked ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)';
+        var knob = document.getElementById('tts-knob');
         if (knob) knob.style.transform = this.checked ? 'translateX(22px)' : 'translateX(0)';
       });
     }
