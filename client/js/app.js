@@ -25,9 +25,8 @@ var LANGUAGES = {
 };
 
 var state = {
-  screen: 'login',
+  screen: 'session',
   specialty: 'anesthesia',
-  pin: '',
   selectedLang: 'es',
   targetLocale: 'es-US',
   direction: { from: 'en', to: 'es' },
@@ -78,8 +77,7 @@ var INTERVIEW_FLOWS = {
 };
 var INTERVIEW_QUESTIONS = INTERVIEW_FLOWS.preop;
 
-var loginScreen, sessionScreen, pinDigits, loginBtn;
-var langCards, specialtyCards;
+var sessionScreen, langCards, specialtyCards;
 var connectionDot, sessionTimer, activeFrom, activeTo;
 var waveformStatus, statusText;
 var originalText, translatedText, micToggle, toastEl;
@@ -92,10 +90,7 @@ var contextPillBtn, contextDrawer, contextDrawerOverlay, contextCloseBtn;
 var pillFlagImg, pillLangName, pillSpecialtyIcon, pillSpecialtyName;
 
 function cacheDom() {
-  loginScreen = document.querySelector('#login-screen');
   sessionScreen = document.querySelector('#session-screen');
-  pinDigits = document.querySelectorAll('.pin-digit');
-  loginBtn = document.querySelector('#login-btn');
   specialtyCards = document.querySelectorAll('.specialty-card');
   langCards = document.querySelectorAll('.lang-flag-card');
   connectionDot = document.querySelector('#connection-dot');
@@ -133,7 +128,6 @@ function cacheDom() {
 
 function showScreen(name) {
   state.screen = name;
-  if (loginScreen) loginScreen.classList.toggle('hidden', name !== 'login');
   if (sessionScreen) sessionScreen.classList.toggle('hidden', name !== 'session');
 
   // Push natively into the device history stack to intercept back swipes
@@ -147,7 +141,8 @@ window.addEventListener('popstate', function (e) {
   if (e.state && e.state.screen) {
     showScreen(e.state.screen);
   } else {
-    showScreen('login');
+    // Default fallback if unknown state
+    showScreen('session');
   }
 });
 
@@ -155,37 +150,6 @@ function showToast(message, type) {
   // Toast notifications disabled per user request to improve UX
   console.log("Toast (disabled):", message);
 }
-
-/* ── PIN ── */
-function initPinInput() {
-  pinDigits.forEach(function (input, i) {
-    input.addEventListener('input', function (e) {
-      var val = e.target.value.replace(/\D/g, '');
-      e.target.value = val;
-      if (val) {
-        e.target.classList.add('filled');
-        if (i < pinDigits.length - 1) pinDigits[i + 1].focus();
-      }
-      updatePinState();
-    });
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Backspace' && !e.target.value && i > 0) {
-        pinDigits[i - 1].focus();
-        pinDigits[i - 1].value = '';
-        pinDigits[i - 1].classList.remove('filled');
-        updatePinState();
-      }
-    });
-  });
-  loginBtn.addEventListener('click', handleLogin);
-}
-
-function updatePinState() {
-  state.pin = Array.from(pinDigits).map(function (d) { return d.value; }).join('');
-  loginBtn.disabled = state.pin.length < 6;
-}
-
-let audioUnlocked = false;
 
 function unlockAudio() {
   if (audioUnlocked || !('speechSynthesis' in window)) return;
@@ -207,15 +171,6 @@ function unlockAudio() {
 // iOS specifically favors 'touchend' over 'touchstart' for media unlocking.
 document.addEventListener('touchend', unlockAudio, { once: true, capture: true });
 document.addEventListener('click', unlockAudio, { once: true, capture: true });
-
-function handleLogin() {
-  if (state.pin.length === 6) {
-    showToast('Authenticated', 'success');
-    setTimeout(function () { startSession(); }, 300);
-  } else {
-    showToast('Enter a 6-digit PIN');
-  }
-}
 
 /* ── Context Drawer & Setup ── */
 function initContextDrawer() {
@@ -1094,7 +1049,6 @@ function initReplay() {
 
 function init() {
   cacheDom();
-  initPinInput();
   initContextDrawer();
   initSessionControls();
   initPresetsMenu();
@@ -1103,7 +1057,9 @@ function init() {
   initSettings();
   initReplay();
   registerSW();
-  showScreen('login');
+
+  // Immediately start session instead of a login screen
+  startSession();
 }
 
 /* ── History Log ── */
