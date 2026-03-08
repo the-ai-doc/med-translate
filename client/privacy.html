@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Privacy Policy - MedTranslate</title>
+    <link rel="stylesheet" href="styles/app.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Scoped styles for the privacy policy to ensure legibility and a clean aesthetic */
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            line-height: 1.6;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            /* Allow scrolling here unlike the main app */
+            position: static;
+        }
+
+        .privacy-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem 1.5rem;
+        }
+
+        header {
+            margin-bottom: 3rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #FFFFFF;
+            margin: 0 0 0.5rem 0;
+            letter-spacing: -0.02em;
+        }
+
+        .last-updated {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #FFFFFF;
+            margin: 2rem 0 1rem 0;
+            letter-spacing: -0.01em;
+        }
+
+        p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        ul {
+            margin-bottom: 1.5rem;
+            color: var(--text-secondary);
+            padding-left: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        .highlight-box {
+            background: rgba(82, 153, 224, 0.1);
+            border: 1px solid rgba(82, 153, 224, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .highlight-box h3 {
+            margin-top: 0;
+            color: #5299E0;
+            font-size: 1.1rem;
+        }
+
+        a {
+            color: #5299E0;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Simple back button */
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .back-btn:hover {
+            color: #FFF;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="privacy-container">
+        <a href="index.html" class="back-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            Return to App
+        </a>
+
+        <header>
+            <h1>Privacy Policy</h1>
+            <div class="last-updated">Last Updated: March 2026</div>
+        </header>
+
+        <div class="highlight-box">
+            <h3>HIPAA Compliance & The Medical TL;DR</h3>
+            <p><strong>MedTranslate does not permanently store, log, sell, or transmit your audio or translation history
+                    to third parties for marketing purposes.</strong></p>
+            <p>As a tool designed by clinicians for clinicians, patient privacy is paramount. Your microphone audio is
+                processed strictly in real-time for the sole purpose of translating speech. Once a session ends, the
+                audio data is discarded.</p>
+        </div>
+
+        <h2>1. Information We Collect</h2>
+        <p>We collect minimal information necessary to provide the translation service:</p>
+        <ul>
+            <li><strong>Microphone Audio:</strong> When you tap the microphone button or hold the push-to-talk
+                interface, we collect audio to transcribe and translate your speech. This access is strictly requested
+                at the moment of use and granted via your device's native permission system.</li>
+            <li><strong>Usage Data:</strong> We may temporarily handle the text transcriptions (the source language text
+                and the translated text) required to render them on your screen and generate the Text-to-Speech audio
+                response.</li>
+        </ul>
+
+        <h2>2. How We Use Your Information</h2>
+        <p>The information we collect is used exclusively for functional purposes:</p>
+        <ul>
+            <li>To transcribe your spoken language in real-time.</li>
+            <li>To interface with translation algorithms to provide accurate medical translations.</li>
+            <li>To generate synthesized audio responses for the patient.</li>
+        </ul>
+
+        <h2>3. Data Storage and Retention</h2>
+        <p><strong>We do not build profiles on you or your patients.</strong></p>
+        <ul>
+            <li>Audio data is processed ephemerally. It is not recorded to permanent storage databases.</li>
+            <li>The translation "History Log" you see in the app is stored locally on your specific device's browser
+                memory (or app state) during an active session so you can review and replay recent statements. Closing
+                or refreshing the application wipes this temporary history.</li>
+        </ul>
+
+        <h2>4. Third-Party Services</h2>
+        <p>To provide high-fidelity translations and speech synthesis, MedTranslate routes text and audio data through
+            necessary infrastructure providers (such as WebSockets and native Speech APIs). These services process data
+            as a conduit and are bound by their respective privacy agreements not to misuse ephemeral translation data.
+        </p>
+
+        <h2>5. Your Rights & Device Permissions</h2>
+        <p>You retain full control over the app's access to your device:</p>
+        <ul>
+            <li>You may revoke Microphone access at any time through your iOS Settings or Android Settings panels.
+                (Note: Doing so will disable speech-to-text functionality).</li>
+        </ul>
+
+        <h2>6. Changes to this Policy</h2>
+        <p>We may update this privacy policy from time to time to clarify our practices or reflect new app capabilities.
+            We encourage you to review this page periodically.</p>
+
+        <h2>7. Contact Us</h2>
+        <p>If you have any questions or concerns about this Privacy Policy or the data practices of MedTranslate, please
+            contact us at: <a href="mailto:support@theaidoc.ai">support@theaidoc.ai</a>.</p>
+    </div>
+
+</body>
+
+</html>
