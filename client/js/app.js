@@ -37,6 +37,7 @@ var state = {
   ws: { socket: null, reconnectAttempts: 0, connected: false, heartbeatTimer: null },
   // Recording timer
   recStartTime: null,
+  recStopTime: 0,
   recElapsed: 0,
   recTimerInterval: null,
   // Slider
@@ -701,6 +702,7 @@ function stopRecording() {
   if (!state.isRecording) return;
   console.log('Stop recording');
   state.isRecording = false;
+  state.recStopTime = Date.now();
   stopRecTimer();
   if (state.recognition) {
     try { state.recognition.stop(); } catch (e) { }
@@ -709,6 +711,7 @@ function stopRecording() {
 
 function finishRecording() {
   state.isRecording = false;
+  state.recStopTime = Date.now();
   stopRecTimer();
   micToggle.classList.remove('recording');
   state.recognition = null;
@@ -916,40 +919,55 @@ function playStreamingAudio(text, lang) {
     window.currentAudioSource = null;
   }
 
-  if (!window.audioCtx || window.audioCtx.state !== 'running') {
-    console.warn("AudioContext not running, falling back to browser voice");
+  if (!window.audioCtx || window.audioCtx.state === 'closed') {
+    console.warn("AudioContext closed, falling back to browser voice");
     return triggerFallback(new Error("Context locked"), 'webaudio');
   }
 
   var url = CONFIG.API_URL + '/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang);
 
-  fetch(url)
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.arrayBuffer();
-    })
-    .then(function (arrayBuffer) {
-      return window.audioCtx.decodeAudioData(arrayBuffer);
-    })
-    .then(function (audioBuffer) {
-      var source = window.audioCtx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(window.audioCtx.destination);
+  // CRITICAL iOS FIX: AVAudioSession hardware collision.
+  // ElevenLabs is so fast that the audio payload arrives before the iPad's 
+  // hardware microphone session has fully yielded back to Playback mode.
+  // We must guarantee at least 600ms has passed since the microphone closed.
+  var timeSinceMicClosed = Date.now() - (state.recStopTime || 0);
+  var safetyDelay = Math.max(0, 600 - timeSinceMicClosed);
 
-      // Match playback rate setting
-      source.playbackRate.value = state.settings.speechRate || 1.0;
+  setTimeout(function () {
+    // Explicitly check and attempt to resume the context inside the timeout
+    // because iOS might have suspended it when tearing down the microphone.
+    if (window.audioCtx && window.audioCtx.state === 'suspended') {
+      try { window.audioCtx.resume(); } catch (e) { }
+    }
 
-      source.onended = function () {
-        handlePostSpeech();
-        window.currentAudioSource = null;
-      };
+    fetch(url)
+      .then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.arrayBuffer();
+      })
+      .then(function (arrayBuffer) {
+        return window.audioCtx.decodeAudioData(arrayBuffer);
+      })
+      .then(function (audioBuffer) {
+        var source = window.audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(window.audioCtx.destination);
 
-      source.start(0);
-      window.currentAudioSource = source;
-    })
-    .catch(function (err) {
-      triggerFallback(err, 'fetch_decode');
-    });
+        // Match playback rate setting
+        source.playbackRate.value = state.settings.speechRate || 1.0;
+
+        source.onended = function () {
+          handlePostSpeech();
+          window.currentAudioSource = null;
+        };
+
+        source.start(0);
+        window.currentAudioSource = source;
+      })
+      .catch(function (err) {
+        triggerFallback(err, 'fetch_decode');
+      });
+  }, safetyDelay);
 }
 
 /* ── Interview Flow ── */
