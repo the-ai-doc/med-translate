@@ -531,7 +531,7 @@ function initSlider() {
     window.nextAudioStream = new Audio();
     window.nextAudioStream.setAttribute('playsinline', '');
     window.nextAudioStream.setAttribute('webkit-playsinline', '');
-    window.nextAudioStream.src = "data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
+    window.nextAudioStream.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
     window.nextAudioStream.play().catch(function () { /* Silently catch invisible buffer rejections */ });
 
     e.preventDefault();
@@ -634,10 +634,6 @@ function startRecording() {
     currentAudioStream.src = '';
     currentAudioStream.load();
     currentAudioStream = null;
-  }
-  if (window.nextAudioStream) {
-    // Media Element Recycling: Pause the silent unlocking buffer before mic starts
-    window.nextAudioStream.pause();
   }
 
   var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
