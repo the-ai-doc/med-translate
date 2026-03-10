@@ -495,6 +495,12 @@ function initSlider() {
 
   function onPointerDown(e) {
     if (state.isRecording) return;
+
+    // Unlock iOS audio synchronously with the touch gesture
+    // Even though recording starts asynchronously (300ms timeout),
+    // we must authorize the globalAudio object NOW so ElevenLabs can auto-play later.
+    unlockAudio();
+
     e.preventDefault();
     state.isDragging = true;
     hasDragged = false;
