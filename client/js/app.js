@@ -946,26 +946,39 @@ function playStreamingAudio(text, lang) {
         return res.arrayBuffer();
       })
       .then(function (arrayBuffer) {
-        return window.audioCtx.decodeAudioData(arrayBuffer);
-      })
-      .then(function (audioBuffer) {
-        var source = window.audioCtx.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(window.audioCtx.destination);
+        var size = arrayBuffer.byteLength;
+        console.log("TTS ArrayBuffer received:", size, "bytes");
+        if (size === 0) throw new Error("ElevenLabs returned 0 bytes");
 
-        // Match playback rate setting
-        source.playbackRate.value = state.settings.speechRate || 1.0;
+        // Use legacy callback syntax forced by iOS WKWebView
+        window.audioCtx.decodeAudioData(
+          arrayBuffer,
+          function (audioBuffer) {
+            var source = window.audioCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(window.audioCtx.destination);
 
-        source.onended = function () {
-          handlePostSpeech();
-          window.currentAudioSource = null;
-        };
+            source.playbackRate.value = state.settings.speechRate || 1.0;
 
-        source.start(0);
-        window.currentAudioSource = source;
+            source.onended = function () {
+              handlePostSpeech();
+              window.currentAudioSource = null;
+            };
+
+            source.start(0);
+            window.currentAudioSource = source;
+          },
+          function (err) {
+            var errMsg = err ? (err.message || err.toString()) : "Implicit decoding array failure";
+            console.error("decodeAudioData failed:", errMsg);
+            triggerFallback(new Error(errMsg), 'decodeAudioData');
+          }
+        );
       })
       .catch(function (err) {
-        triggerFallback(err, 'fetch_decode');
+        var errMsg = err ? (err.message || err.toString()) : "Unknown fetch collision";
+        console.error("TTS fetch chain failed:", errMsg);
+        triggerFallback(new Error(errMsg), 'fetch_stream');
       });
   }, safetyDelay);
 }
