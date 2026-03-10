@@ -52,11 +52,7 @@ var state = {
 var audioUnlocked = false;
 
 // Initialize a persistent HTML5 audio tag for iOS streaming.
-var globalAudio = document.createElement('audio');
-globalAudio.setAttribute('playsinline', '');
-globalAudio.setAttribute('webkit-playsinline', '');
-globalAudio.style.display = 'none';
-document.body.appendChild(globalAudio);
+var currentAudioStream = null;
 
 var INTERVIEW_FLOWS = {
   preop: [
@@ -620,6 +616,16 @@ function initSessionControls() {
 function startRecording() {
   if (!state.session.active || state.isRecording) return;
 
+  // CRITICAL iOS FIX: If audio is currently playing, explicitly pause it before 
+  // engaging the microphone. Otherwise, iOS WebKit's AVAudioSession transition from 
+  // 'Playback' to 'PlayAndRecord' will permanently brick the Audio element (-66748).
+  if (currentAudioStream) {
+    currentAudioStream.pause();
+    currentAudioStream.src = '';
+    currentAudioStream.load();
+    currentAudioStream = null;
+  }
+
   var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRec) { showToast('Speech recognition not supported'); return; }
 
@@ -906,24 +912,40 @@ function playStreamingAudio(text, lang) {
     playBrowserVoice(text, lang);
   }
 
-  // Direct streaming assignment. The HTML5 <audio> tag natively handles chunked HTTP responses.
-  // This bypasses the need to wait for a full Blob to download via fetch(), achieving sub-250ms latency.
+  // Explicitly teardown any existing stream before creating a new one
+  if (currentAudioStream) {
+    currentAudioStream.pause();
+    currentAudioStream.src = '';
+    currentAudioStream = null;
+  }
+
+  // Create a brand NEW audio element. Reusing audio tags on iOS after an 
+  // AVAudioSession route change (like using the microphone) bricks the element.
+  currentAudioStream = new Audio();
+  currentAudioStream.setAttribute('playsinline', '');
+  currentAudioStream.setAttribute('webkit-playsinline', '');
+
   var url = CONFIG.API_URL + '/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang);
+  currentAudioStream.src = url;
+  currentAudioStream.load();
+  currentAudioStream.volume = 1.0;
+  currentAudioStream.playbackRate = state.settings.speechRate || 1.0;
 
-  globalAudio.src = url;
-  globalAudio.load();
-  globalAudio.volume = 1.0; // Explicitly set volume to max
-  globalAudio.playbackRate = state.settings.speechRate || 1.0;
-
-  globalAudio.onended = function () {
+  currentAudioStream.onended = function () {
     handlePostSpeech();
+    // Clean up memory after playing
+    if (currentAudioStream) {
+      currentAudioStream.pause();
+      currentAudioStream.src = '';
+      currentAudioStream = null;
+    }
   };
 
-  globalAudio.onerror = function (err) {
+  currentAudioStream.onerror = function (err) {
     triggerFallback(err, 'onerror');
   };
 
-  globalAudio.play().catch(function (err) {
+  currentAudioStream.play().catch(function (err) {
     triggerFallback(err, 'catch');
   });
 }
