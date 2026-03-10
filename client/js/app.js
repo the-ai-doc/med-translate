@@ -161,26 +161,53 @@ function showToast(message, type) {
   console.log("Toast (disabled):", message);
 }
 
+// Global Web Audio Context for native iOS WKWebView bridging
+window.audioCtx = null;
+
 function unlockAudio() {
   if (audioUnlocked || !('speechSynthesis' in window)) return;
 
-  // Set the flag immediately to prevent duplicate unlock attempts
-  audioUnlocked = true;
+  try {
+    // 1. Initialize the global AudioContext if it doesn't exist
+    if (!window.audioCtx) {
+      var AudioContext = window.AudioContext || window.webkitAudioContext;
+      window.audioCtx = new AudioContext();
+    }
 
-  // iOS Safari requires a full reset and an invisible utterance
-  speechSynthesis.cancel();
-  var utterance = new SpeechSynthesisUtterance(' ');
-  utterance.volume = 0;
-  utterance.rate = 1; // Normal rate to avoid iOS aborting it as an error
-  speechSynthesis.speak(utterance);
+    // 2. Resume the context in case it started suspended
+    if (window.audioCtx.state === 'suspended') {
+      window.audioCtx.resume();
+    }
 
-  // Play a microscopic MP3 data URI to guarantee iOS audio tag unlock
-  globalAudio.src = "data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
-  globalAudio.volume = 1.0;
-  globalAudio.play().catch(function () { });
+    // 3. Create and play an empty, silent 1-frame buffer to authorize the context
+    var buffer = window.audioCtx.createBuffer(1, 1, 22050);
+    var source = window.audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(window.audioCtx.destination);
 
-  console.log('Audio formally unlocked');
+    // Modern iOS requires start(0) inside a user interaction to unlock
+    if (source.start) {
+      source.start(0);
+    } else if (source.play) {
+      source.play(0); // Fallback for extremely old webkit
+    }
+
+    // Check if the context successfully transitioned to running
+    if (window.audioCtx.state === 'running') {
+      audioUnlocked = true;
+      console.log('Web Audio Context formally unlocked and running');
+    }
+
+    // We no longer try to use speechSynthesis or data URIs to hack the unlock.
+    // The Web Audio context correctly authorizes the entire domain for background iOS media.
+  } catch (e) {
+    console.warn('Failed to unlock Web Audio context:', e);
+  }
 }
+
+// Proactive Global Unlocker: Unlock on the very first touch anywhere in the app
+document.body.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+document.body.addEventListener('click', unlockAudio, { once: true, passive: true });
 
 /* ── Context Drawer & Setup ── */
 function initContextDrawer() {
@@ -193,7 +220,7 @@ function initContextDrawer() {
 
   if (contextPillBtn && contextDrawer && contextDrawerOverlay) {
     contextPillBtn.addEventListener('click', function () {
-      unlockAudio();
+      // global document listener now handles unlocking
       contextDrawer.classList.remove('hidden');
       contextDrawerOverlay.classList.remove('hidden');
     });
@@ -210,7 +237,7 @@ function initContextDrawer() {
   // Specialty Selection
   specialtyCards.forEach(function (card) {
     card.addEventListener('click', function () {
-      unlockAudio();
+      // global document listener now handles unlocking
       specialtyCards.forEach(function (c) { c.classList.remove('selected'); });
       card.classList.add('selected');
       state.specialty = card.dataset.specialty;
@@ -234,7 +261,7 @@ function initContextDrawer() {
   // Language Selection
   langCards.forEach(function (card) {
     card.addEventListener('click', function () {
-      unlockAudio();
+      // global document listener now handles unlocking
       langCards.forEach(function (c) { c.classList.remove('selected'); });
       card.classList.add('selected');
       state.selectedLang = card.dataset.lang;
@@ -907,7 +934,7 @@ function initInterviewFlow() {
   if (presetBtns) {
     presetBtns.forEach(btn => {
       btn.addEventListener('click', function (e) {
-        unlockAudio();
+        // global document listener now handles unlocking
         startInterviewFlow(e);
       });
     });
