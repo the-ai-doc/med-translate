@@ -106,6 +106,9 @@ async def _stream_elevenlabs(input_text: str, input_lang: str):
         "xi-api-key": settings.elevenlabs_api_key,
         "Content-Type": "application/json"
     }
+    
+    key_debug = settings.elevenlabs_api_key
+    logger.info(f"ElevenLabs Auth Check - Key Length: {len(key_debug)}, Prefix: {key_debug[:5]}...")
 
     async def stream_audio():
         try:
