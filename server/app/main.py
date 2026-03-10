@@ -126,7 +126,7 @@ async def _stream_elevenlabs(input_text: str, input_lang: str):
                     async for chunk in response.aiter_bytes():
                         yield chunk
         except httpx.HTTPStatusError as e:
-            logger.error("ElevenLabs HTTP error: %s - %s", e.response.status_code, e)
+            logger.error("ElevenLabs HTTP error: %s - %s - Body: %s", e.response.status_code, e, e.response.text)
         except Exception as e:
             logger.error("ElevenLabs stream error: %s", e)
 
