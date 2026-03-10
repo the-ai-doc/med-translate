@@ -52,8 +52,7 @@ var state = {
 var audioUnlocked = false;
 
 // Initialize a persistent HTML5 audio tag for iOS streaming.
-var currentAudioStream = null;
-var nextAudioStream = null; // Pre-authorized placeholder for Media Element Recycling
+window.currentAudioSource = null;
 
 var INTERVIEW_FLOWS = {
   preop: [
@@ -521,18 +520,7 @@ function initSlider() {
     if (state.isRecording) return;
 
     // Unlock iOS audio synchronously with the touch gesture
-    // Even though recording starts asynchronously (300ms timeout),
-    // we must authorize the globalAudio object NOW so ElevenLabs can auto-play later.
     unlockAudio();
-
-    // Media Element Recycling: Synchronously blueprint the exact player object for this turn.
-    // iOS Safari completely freezes asynchronous `.play()` commands unless the 
-    // HTMLMediaElement was initiated directly inside a UI thread stack frame.
-    window.nextAudioStream = new Audio();
-    window.nextAudioStream.setAttribute('playsinline', '');
-    window.nextAudioStream.setAttribute('webkit-playsinline', '');
-    window.nextAudioStream.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
-    window.nextAudioStream.play().catch(function () { /* Silently catch invisible buffer rejections */ });
 
     e.preventDefault();
     state.isDragging = true;
@@ -626,14 +614,12 @@ function initSessionControls() {
 function startRecording() {
   if (!state.session.active || state.isRecording) return;
 
-  // CRITICAL iOS FIX: If audio is currently playing, explicitly pause it before 
+  // CRITICAL iOS FIX: Stop any playing Web Audio source before 
   // engaging the microphone. Otherwise, iOS WebKit's AVAudioSession transition from 
-  // 'Playback' to 'PlayAndRecord' will permanently brick the Audio element (-66748).
-  if (currentAudioStream) {
-    currentAudioStream.pause();
-    currentAudioStream.src = '';
-    currentAudioStream.load();
-    currentAudioStream = null;
+  // 'Playback' to 'PlayAndRecord' will permanently brick the audio engine (-66748).
+  if (window.currentAudioSource) {
+    try { window.currentAudioSource.stop(); } catch (e) { }
+    window.currentAudioSource = null;
   }
 
   var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -922,44 +908,48 @@ function playStreamingAudio(text, lang) {
     playBrowserVoice(text, lang);
   }
 
-  // Explicitly teardown any existing stream before creating a new one
-  if (currentAudioStream) {
-    currentAudioStream.pause();
-    currentAudioStream.src = '';
-    currentAudioStream = null;
+  // We abandon <audio> tags entirely on iOS because they fatally collide with SpeechRecognition
+  // for the hardware AVAudioSession. Instead, we use the pre-unlocked AudioContext.
+
+  if (window.currentAudioSource) {
+    try { window.currentAudioSource.stop(); } catch (e) { }
+    window.currentAudioSource = null;
   }
 
-  // Consume the pre-authorized audio object that we synchronously triggered inside onPointerDown.
-  // If we missed the UI thread instantiation (e.g. from a pure Web Socket event), fallback to new Audio.
-  currentAudioStream = window.nextAudioStream || new Audio();
-  window.nextAudioStream = null; // Clear queue
-
-  currentAudioStream.setAttribute('playsinline', '');
-  currentAudioStream.setAttribute('webkit-playsinline', '');
+  if (!window.audioCtx || window.audioCtx.state !== 'running') {
+    console.warn("AudioContext not running, falling back to browser voice");
+    return triggerFallback(new Error("Context locked"), 'webaudio');
+  }
 
   var url = CONFIG.API_URL + '/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang);
-  currentAudioStream.src = url;
-  currentAudioStream.load();
-  currentAudioStream.volume = 1.0;
-  currentAudioStream.playbackRate = state.settings.speechRate || 1.0;
 
-  currentAudioStream.onended = function () {
-    handlePostSpeech();
-    // Clean up memory after playing
-    if (currentAudioStream) {
-      currentAudioStream.pause();
-      currentAudioStream.src = '';
-      currentAudioStream = null;
-    }
-  };
+  fetch(url)
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.arrayBuffer();
+    })
+    .then(function (arrayBuffer) {
+      return window.audioCtx.decodeAudioData(arrayBuffer);
+    })
+    .then(function (audioBuffer) {
+      var source = window.audioCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(window.audioCtx.destination);
 
-  currentAudioStream.onerror = function (err) {
-    triggerFallback(err, 'onerror');
-  };
+      // Match playback rate setting
+      source.playbackRate.value = state.settings.speechRate || 1.0;
 
-  currentAudioStream.play().catch(function (err) {
-    triggerFallback(err, 'catch');
-  });
+      source.onended = function () {
+        handlePostSpeech();
+        window.currentAudioSource = null;
+      };
+
+      source.start(0);
+      window.currentAudioSource = source;
+    })
+    .catch(function (err) {
+      triggerFallback(err, 'fetch_decode');
+    });
 }
 
 /* ── Interview Flow ── */
