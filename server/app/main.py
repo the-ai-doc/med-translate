@@ -68,17 +68,19 @@ class TTSRequest(BaseModel):
     lang: str = "ht"
 
 
-@app.post("/api/tts")
 @app.get("/api/tts")
-async def text_to_speech(text: str = None, lang: str = "ht", req: TTSRequest = None):
+async def text_to_speech_get(text: str = None, lang: str = "ht"):
+    return await _stream_elevenlabs(text, lang)
+
+@app.post("/api/tts")
+async def text_to_speech_post(req: TTSRequest):
+    return await _stream_elevenlabs(req.text, req.lang)
+
+async def _stream_elevenlabs(input_text: str, input_lang: str):
     """
     Proxy TTS requests to ElevenLabs API using HTTP streaming.
     Streams chunks using eleven_turbo_v2_5 for ultra-low latency.
-    Supports GET (for direct <audio src> streaming on iOS) and POST.
     """
-    input_text = text if text else (req.text if req else "")
-    input_lang = lang if text else (req.lang if req else "ht")
-
     if not input_text:
         raise HTTPException(status_code=400, detail="Text is required")
 
