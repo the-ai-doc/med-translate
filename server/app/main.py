@@ -122,12 +122,14 @@ async def _stream_elevenlabs(input_text: str, input_lang: str):
                     json=payload,
                     timeout=20.0
                 ) as response:
+                    if response.status_code != 200:
+                        await response.aread()
+                        logger.error("ElevenLabs HTTP error: %s - Body: %s", response.status_code, response.text)
                     response.raise_for_status()
                     async for chunk in response.aiter_bytes():
                         yield chunk
         except httpx.HTTPStatusError as e:
-            await e.response.aread()
-            logger.error("ElevenLabs HTTP error: %s - %s - Body: %s", e.response.status_code, e, e.response.text)
+            pass # Already logged inside the stream block
         except Exception as e:
             logger.error("ElevenLabs stream error: %s", e)
 
