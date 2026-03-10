@@ -88,9 +88,9 @@ async def _stream_elevenlabs(input_text: str, input_lang: str):
         logger.error("ElevenLabs API key missing for TTS")
         raise HTTPException(status_code=503, detail="ElevenLabs audio not configured")
 
-    # Use George (JBFqnCBcs6Z1x3S6H7Zc) - a warm, reassuring, English-native voice 
+    # Use George (JBFqnCBsd6RMkjVDRZzb) - a warm, reassuring, English-native voice 
     # that Eleven Turbo v2.5 can flex into ~32 languages automatically.
-    voice_id = "JBFqnCBcs6Z1x3S6H7Zc" 
+    voice_id = "JBFqnCBsd6RMkjVDRZzb"
 
     payload = {
         "text": input_text,
