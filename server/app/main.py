@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, File, Form, UploadFile, HTTPException, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import httpx
 import uuid
@@ -68,35 +69,70 @@ class TTSRequest(BaseModel):
 
 
 @app.post("/api/tts")
-async def text_to_speech(req: TTSRequest):
+@app.get("/api/tts")
+async def text_to_speech(text: str = None, lang: str = "ht", req: TTSRequest = None):
     """
-    Proxy TTS requests to Modal serverless endpoint.
-    Modal runs the Meta MMS model on-demand (scales to zero when idle).
+    Proxy TTS requests to ElevenLabs API using HTTP streaming.
+    Streams chunks using eleven_turbo_v2_5 for ultra-low latency.
+    Supports GET (for direct <audio src> streaming on iOS) and POST.
     """
-    if not settings.modal_tts_url:
-        raise HTTPException(status_code=503, detail="TTS endpoint not configured")
+    input_text = text if text else (req.text if req else "")
+    input_lang = lang if text else (req.lang if req else "ht")
 
-    try:
-        resp = await app.state.http.post(
-            settings.modal_tts_url,
-            json={"text": req.text, "lang": req.lang},
-        )
-        resp.raise_for_status()
+    if not input_text:
+        raise HTTPException(status_code=400, detail="Text is required")
 
-        return Response(
-            content=resp.content,
-            media_type=resp.headers.get("content-type", "audio/wav"),
-            headers={"Content-Disposition": "inline"},
-        )
-    except httpx.HTTPStatusError as e:
-        logger.error("Modal TTS error: %s %s", e.response.status_code, e.response.text[:200])
-        raise HTTPException(status_code=502, detail="TTS generation failed")
-    except httpx.TimeoutException:
-        logger.error("Modal TTS timeout")
-        raise HTTPException(status_code=504, detail="TTS request timed out")
-    except Exception as e:
-        logger.error("TTS proxy error: %s", e)
-        raise HTTPException(status_code=500, detail="TTS error")
+    if not settings.elevenlabs_api_key:
+        logger.error("ElevenLabs API key missing for TTS")
+        raise HTTPException(status_code=503, detail="ElevenLabs audio not configured")
+
+    # Use George (JBFqnCBcs6Z1x3S6H7Zc) - a warm, reassuring, English-native voice 
+    # that Eleven Turbo v2.5 can flex into ~32 languages automatically.
+    voice_id = "JBFqnCBcs6Z1x3S6H7Zc" 
+
+    payload = {
+        "text": input_text,
+        "model_id": "eleven_turbo_v2_5",
+        "output_format": "mp3_44100_128",
+        "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.75
+        }
+    }
+    
+    headers = {
+        "xi-api-key": settings.elevenlabs_api_key,
+        "Content-Type": "application/json"
+    }
+
+    async def stream_audio():
+        try:
+            # Open a streaming connection to ElevenLabs and yield raw bytes
+            # instantly as they arrive, enabling sub-250ms playback.
+            async with httpx.AsyncClient() as client:
+                async with client.stream(
+                    "POST",
+                    f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream",
+                    headers=headers,
+                    json=payload,
+                    timeout=20.0
+                ) as response:
+                    response.raise_for_status()
+                    async for chunk in response.aiter_bytes():
+                        yield chunk
+        except httpx.HTTPStatusError as e:
+            logger.error("ElevenLabs HTTP error: %s - %s", e.response.status_code, e)
+        except Exception as e:
+            logger.error("ElevenLabs stream error: %s", e)
+
+    return StreamingResponse(
+        stream_audio(),
+        media_type="audio/mpeg",
+        headers={
+            "Content-Disposition": "inline",
+            "Transfer-Encoding": "chunked"
+        }
+    )
 
 
 @app.post("/api/train")

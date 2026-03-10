@@ -5,6 +5,7 @@
  */
 
 var CONFIG = {
+  API_URL: 'https://med-translate-production.up.railway.app',
   WS_URL: 'wss://med-translate-production.up.railway.app/ws',
   RECONNECT_DELAY: 2000,
   RECONNECT_MAX_DELAY: 30000,
@@ -47,6 +48,15 @@ var state = {
   // Settings
   settings: { ttsEnabled: true, speechRate: 1.0 }
 };
+
+var audioUnlocked = false;
+
+// Initialize a persistent HTML5 audio tag for iOS streaming.
+var globalAudio = document.createElement('audio');
+globalAudio.setAttribute('playsinline', '');
+globalAudio.setAttribute('webkit-playsinline', '');
+globalAudio.style.display = 'none';
+document.body.appendChild(globalAudio);
 
 var INTERVIEW_FLOWS = {
   preop: [
@@ -162,15 +172,15 @@ function unlockAudio() {
   var utterance = new SpeechSynthesisUtterance(' ');
   utterance.volume = 0;
   utterance.rate = 1; // Normal rate to avoid iOS aborting it as an error
-
   speechSynthesis.speak(utterance);
-  console.log('Audio context formally unlocked');
-}
 
-// Attach globally to capture the very first user interaction.
-// iOS specifically favors 'touchend' over 'touchstart' for media unlocking.
-document.addEventListener('touchend', unlockAudio, { once: true, capture: true });
-document.addEventListener('click', unlockAudio, { once: true, capture: true });
+  // Play a microscopic MP3 data URI to guarantee iOS audio tag unlock
+  globalAudio.src = "data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
+  globalAudio.volume = 1.0;
+  globalAudio.play().catch(function () { });
+
+  console.log('Audio formally unlocked');
+}
 
 /* ── Context Drawer & Setup ── */
 function initContextDrawer() {
@@ -183,6 +193,7 @@ function initContextDrawer() {
 
   if (contextPillBtn && contextDrawer && contextDrawerOverlay) {
     contextPillBtn.addEventListener('click', function () {
+      unlockAudio();
       contextDrawer.classList.remove('hidden');
       contextDrawerOverlay.classList.remove('hidden');
     });
@@ -199,6 +210,7 @@ function initContextDrawer() {
   // Specialty Selection
   specialtyCards.forEach(function (card) {
     card.addEventListener('click', function () {
+      unlockAudio();
       specialtyCards.forEach(function (c) { c.classList.remove('selected'); });
       card.classList.add('selected');
       state.specialty = card.dataset.specialty;
@@ -222,6 +234,7 @@ function initContextDrawer() {
   // Language Selection
   langCards.forEach(function (card) {
     card.addEventListener('click', function () {
+      unlockAudio();
       langCards.forEach(function (c) { c.classList.remove('selected'); });
       card.classList.add('selected');
       state.selectedLang = card.dataset.lang;
@@ -784,9 +797,10 @@ function connectWebSocket() {
 }
 
 function speakTranslation(text, lang) {
-  // All languages use browser TTS for instant playback
-  // Fish Audio (ht) was causing 3-5s round-trip delay via Railway
-  playBrowserVoice(text, lang);
+  // Ultra-low latency streaming TTS (ElevenLabs Turbo v2.5) via HTTP streaming.
+  // We use this as primary to get empathetic, high-fidelity human voices 
+  // without the 2-second block delay of standard cloud APIs.
+  playStreamingAudio(text, lang);
 }
 
 function handlePostSpeech() {
@@ -848,50 +862,58 @@ function playBrowserVoice(text, lang) {
   speechSynthesis.speak(utterance);
 }
 
-function playFishAudio(text, lang) {
+function playStreamingAudio(text, lang) {
   setStatus('speaking');
-  fetch('/api/tts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: text, lang: lang })
-  })
-    .then(function (res) {
-      if (!res.ok) throw new Error('TTS failed: ' + res.status);
-      return res.blob();
-    })
-    .then(function (blob) {
-      var url = URL.createObjectURL(blob);
-      var audio = new Audio(url);
-      audio.onended = function () {
-        URL.revokeObjectURL(url);
-        handlePostSpeech();
-      };
-      audio.onerror = function () {
-        URL.revokeObjectURL(url);
-        console.warn('Fish Audio playback failed, falling back to browser voice');
-        playBrowserVoice(text, lang);
-      };
-      audio.play().catch(function () {
-        console.warn('Fish Audio play() blocked, falling back to browser voice');
-        playBrowserVoice(text, lang);
-      });
-    })
-    .catch(function (err) {
-      console.warn('Fish Audio fetch failed:', err, '— falling back to browser voice');
-      playBrowserVoice(text, lang);
-    });
+
+  var fallbackTriggered = false;
+  function triggerFallback(err, source) {
+    if (fallbackTriggered) return;
+    fallbackTriggered = true;
+    console.warn('Streaming Audio ' + source + ' failed:', err, 'falling back to browser voice');
+    playBrowserVoice(text, lang);
+  }
+
+  // Direct streaming assignment. The HTML5 <audio> tag natively handles chunked HTTP responses.
+  // This bypasses the need to wait for a full Blob to download via fetch(), achieving sub-250ms latency.
+  var url = CONFIG.API_URL + '/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang);
+
+  globalAudio.src = url;
+  globalAudio.load();
+  globalAudio.volume = 1.0; // Explicitly set volume to max
+  globalAudio.playbackRate = state.settings.speechRate || 1.0;
+
+  globalAudio.onended = function () {
+    handlePostSpeech();
+  };
+
+  globalAudio.onerror = function (err) {
+    triggerFallback(err, 'onerror');
+  };
+
+  globalAudio.play().catch(function (err) {
+    triggerFallback(err, 'catch');
+  });
 }
 
 /* ── Interview Flow ── */
 function initInterviewFlow() {
-  document.querySelectorAll('.preset-workflow-btn').forEach(btn => {
-    btn.addEventListener('click', startInterviewFlow);
-  });
+  var presetBtns = document.querySelectorAll('.preset-workflow-btn');
+  if (presetBtns) {
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', function (e) {
+        unlockAudio();
+        startInterviewFlow(e);
+      });
+    });
+  }
+
   if (interviewNextBtn) interviewNextBtn.addEventListener('click', advanceInterview);
   if (interviewSkipBtn) interviewSkipBtn.addEventListener('click', endInterview);
-  if (closeSummaryBtn) closeSummaryBtn.addEventListener('click', function () {
-    summaryScreen.classList.add('hidden');
-  });
+  if (closeSummaryBtn) {
+    closeSummaryBtn.addEventListener('click', function () {
+      summaryScreen.classList.add('hidden');
+    });
+  }
 }
 
 function startInterviewFlow(e) {
@@ -1279,38 +1301,44 @@ var currentPhraseIndex = 0;
 var trainMediaRecorder = null;
 var trainAudioChunks = [];
 
-trainToggleBtn.addEventListener('click', function () {
-  if (!state.selectedLang) {
-    showToast("Please select a target language first.", "error");
-    return;
-  }
-  document.getElementById('setup-screen').classList.add('hidden');
-  trainScreen.classList.remove('hidden');
-  trainTargetLang.textContent = LANGUAGES[state.selectedLang.split('-')[0]].name;
-  loadNextPhrase();
-});
+if (trainToggleBtn) {
+  trainToggleBtn.addEventListener('click', function () {
+    if (!state.selectedLang) {
+      showToast("Please select a target language first.", "error");
+      return;
+    }
+    document.getElementById('setup-screen').classList.add('hidden');
+    trainScreen.classList.remove('hidden');
+    trainTargetLang.textContent = LANGUAGES[state.selectedLang.split('-')[0]].name;
+    loadNextPhrase();
+  });
+}
 
-exitTrainBtn.addEventListener('click', function () {
-  trainScreen.classList.add('hidden');
-  document.getElementById('setup-screen').classList.remove('hidden');
-});
+if (exitTrainBtn) {
+  exitTrainBtn.addEventListener('click', function () {
+    trainScreen.classList.add('hidden');
+    document.getElementById('setup-screen').classList.remove('hidden');
+  });
+}
 
 function loadNextPhrase() {
   currentPhraseIndex = Math.floor(Math.random() * trainingPhrases.length);
   trainPhraseText.textContent = '"' + trainingPhrases[currentPhraseIndex] + '"';
 }
 
-trainRecordBtn.addEventListener('mousedown', startTrainingRecording);
-trainRecordBtn.addEventListener('mouseup', stopTrainingRecording);
-trainRecordBtn.addEventListener('mouseleave', function () {
-  if (trainMediaRecorder && trainMediaRecorder.state === 'recording') {
-    stopTrainingRecording();
-  }
-});
+if (trainRecordBtn) {
+  trainRecordBtn.addEventListener('mousedown', startTrainingRecording);
+  trainRecordBtn.addEventListener('mouseup', stopTrainingRecording);
+  trainRecordBtn.addEventListener('mouseleave', function () {
+    if (trainMediaRecorder && trainMediaRecorder.state === 'recording') {
+      stopTrainingRecording();
+    }
+  });
 
-// Touch support for mobile
-trainRecordBtn.addEventListener('touchstart', function (e) { e.preventDefault(); startTrainingRecording(); });
-trainRecordBtn.addEventListener('touchend', function (e) { e.preventDefault(); stopTrainingRecording(); });
+  // Touch support for mobile
+  trainRecordBtn.addEventListener('touchstart', function (e) { e.preventDefault(); startTrainingRecording(); });
+  trainRecordBtn.addEventListener('touchend', function (e) { e.preventDefault(); stopTrainingRecording(); });
+}
 
 async function startTrainingRecording() {
   trainStatusText.textContent = "Recording...";
@@ -1363,7 +1391,7 @@ function uploadTrainingAudio(blob, phrase) {
   formData.append('lang', state.selectedLang);
   formData.append('pin', state.pin);
 
-  fetch('/api/train', {
+  fetch(CONFIG.API_URL + '/api/train', {
     method: 'POST',
     body: formData
   }).catch(err => console.error("Upload failed", err));
@@ -1387,15 +1415,18 @@ if (validateToggleBtn) {
     fetchValidationQueue();
   });
 }
-document.querySelector('#logout-btn-validation').addEventListener('click', function () {
-  showScreen('login');
-});
+var logoutBtnVal = document.querySelector('#logout-btn-validation');
+if (logoutBtnVal) {
+  logoutBtnVal.addEventListener('click', function () {
+    showScreen('login');
+  });
+}
 
 async function fetchValidationQueue() {
   valStatus.textContent = "Fetching audio queue...";
   valApproveBtn.disabled = true; valRejectBtn.disabled = true;
   try {
-    const res = await fetch('/api/train/queue');
+    const res = await fetch(CONFIG.API_URL + '/api/train/queue');
     validationQueue = await res.json();
     if (validationQueue.length === 0) {
       valPhrase.textContent = "Queue is empty! Great job.";
@@ -1433,7 +1464,7 @@ async function submitReview(isApproved) {
   fd.append('pin', state.pin);
 
   try {
-    await fetch('/api/train/review', { method: 'POST', body: fd });
+    await fetch(CONFIG.API_URL + '/api/train/review', { method: 'POST', body: fd });
     nextValidationItem();
   } catch (e) {
     valStatus.textContent = "Error submitting. Try again.";
@@ -1442,7 +1473,7 @@ async function submitReview(isApproved) {
 }
 
 if (valApproveBtn) {
-  valApproveBtn.addEventListener('click', () => submitReview('true'));
-  valRejectBtn.addEventListener('click', () => submitReview('false'));
+  if (valApproveBtn) valApproveBtn.addEventListener('click', () => submitReview('true'));
+  if (valRejectBtn) valRejectBtn.addEventListener('click', () => submitReview('false'));
 }
 

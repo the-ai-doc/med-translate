@@ -20,8 +20,11 @@ class Settings(BaseSettings):
     fish_audio_api_key: str = ""
     fish_audio_model: str = "s1"
 
-    # Modal TTS (Haitian Creole via Meta MMS)
-    modal_tts_url: str = ""
+    # OpenAI TTS
+    openai_api_key: str = ""
+
+    # ElevenLabs TTS
+    elevenlabs_api_key: str = ""
 
     # Supabase
     supabase_url: str = ""
