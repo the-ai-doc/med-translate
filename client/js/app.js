@@ -53,6 +53,7 @@ var audioUnlocked = false;
 
 // Initialize a persistent HTML5 audio tag for iOS streaming.
 var currentAudioStream = null;
+var nextAudioStream = null; // Pre-authorized placeholder for Media Element Recycling
 
 var INTERVIEW_FLOWS = {
   preop: [
@@ -524,6 +525,15 @@ function initSlider() {
     // we must authorize the globalAudio object NOW so ElevenLabs can auto-play later.
     unlockAudio();
 
+    // Media Element Recycling: Synchronously blueprint the exact player object for this turn.
+    // iOS Safari completely freezes asynchronous `.play()` commands unless the 
+    // HTMLMediaElement was initiated directly inside a UI thread stack frame.
+    window.nextAudioStream = new Audio();
+    window.nextAudioStream.setAttribute('playsinline', '');
+    window.nextAudioStream.setAttribute('webkit-playsinline', '');
+    window.nextAudioStream.src = "data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
+    window.nextAudioStream.play().catch(function () { /* Silently catch invisible buffer rejections */ });
+
     e.preventDefault();
     state.isDragging = true;
     hasDragged = false;
@@ -624,6 +634,10 @@ function startRecording() {
     currentAudioStream.src = '';
     currentAudioStream.load();
     currentAudioStream = null;
+  }
+  if (window.nextAudioStream) {
+    // Media Element Recycling: Pause the silent unlocking buffer before mic starts
+    window.nextAudioStream.pause();
   }
 
   var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -919,9 +933,11 @@ function playStreamingAudio(text, lang) {
     currentAudioStream = null;
   }
 
-  // Create a brand NEW audio element. Reusing audio tags on iOS after an 
-  // AVAudioSession route change (like using the microphone) bricks the element.
-  currentAudioStream = new Audio();
+  // Consume the pre-authorized audio object that we synchronously triggered inside onPointerDown.
+  // If we missed the UI thread instantiation (e.g. from a pure Web Socket event), fallback to new Audio.
+  currentAudioStream = window.nextAudioStream || new Audio();
+  window.nextAudioStream = null; // Clear queue
+
   currentAudioStream.setAttribute('playsinline', '');
   currentAudioStream.setAttribute('webkit-playsinline', '');
 
