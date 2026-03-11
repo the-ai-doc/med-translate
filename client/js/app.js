@@ -720,14 +720,21 @@ function finishRecording() {
 function sendForTranslation(text) {
   setStatus('translating');
   console.log('Translating:', text, state.direction.from, '->', state.direction.to);
+
+  var payload = JSON.stringify({
+    type: 'translate',
+    text: text,
+    from: state.direction.from,
+    to: state.direction.to,
+    session_id: state.session.id
+  });
+
   if (state.ws.connected && state.ws.socket && state.ws.socket.readyState === WebSocket.OPEN) {
-    state.ws.socket.send(JSON.stringify({
-      type: 'translate',
-      text: text,
-      from: state.direction.from,
-      to: state.direction.to,
-      session_id: state.session.id
-    }));
+    state.ws.socket.send(payload);
+  } else if (state.ws.socket && state.ws.socket.readyState === WebSocket.CONNECTING) {
+    console.log('WS connecting, queuing translation request...');
+    state.ws.queue = state.ws.queue || [];
+    state.ws.queue.push(payload);
   } else {
     showToast('Not connected to server');
     setStatus('ready');
@@ -769,6 +776,16 @@ function connectWebSocket() {
           from: state.direction.from,
           to: state.direction.to
         }));
+
+        // Flush any queued translation messages that were triggered while CONNECTING
+        if (state.ws.queue && state.ws.queue.length > 0) {
+          console.log('WS opened, flushing ' + state.ws.queue.length + ' queued messages...');
+          state.ws.queue.forEach(function (payload) {
+            ws.send(payload);
+          });
+          state.ws.queue = [];
+        }
+
         resolve();
       };
 
