@@ -1337,27 +1337,29 @@ function initPresetsMenu() {
       }
     });
 
-    // Handle clicking a specific preset item — panel stays open for quick consecutive phrases
-    const presetItems = document.querySelectorAll('.preset-item');
-    presetItems.forEach(item => {
-      item.addEventListener('click', function () {
-        const textToTranslate = this.getAttribute('data-text');
-        if (textToTranslate) {
-          originalText.textContent = textToTranslate;
-          sendForTranslation(textToTranslate);
-          // Panel intentionally stays open so user can fire another phrase immediately
-        }
-      });
-    });
-
     // Dismiss presets menu when tapping outside
     document.addEventListener('click', function (e) {
       if (!presetsMenu.classList.contains('hidden')) {
         var container = document.querySelector('.presets-container');
-        if (container && !container.contains(e.target)) {
+        if (container && !container.contains(e.target) && !toggleBtn.contains(e.target)) {
           presetsMenu.classList.add('hidden');
           toggleBtn.classList.remove('active');
         }
+      }
+    });
+
+    // Use Event Delegation on the parent menu instead of individual elements.
+    // This survives DOM updates (like when updateDynamicUI translates the text inside them)
+    // and guarantees exactly ONE event fires per click.
+    presetsMenu.addEventListener('click', function (e) {
+      const presetItem = e.target.closest('.preset-item');
+      if (!presetItem) return;
+      if (presetItem.id === 'start-interview-btn') return;
+
+      const textToTranslate = presetItem.getAttribute('data-text');
+      if (textToTranslate) {
+        originalText.textContent = textToTranslate;
+        sendForTranslation(textToTranslate);
       }
     });
   }
