@@ -69,12 +69,69 @@ class TTSRequest(BaseModel):
 
 
 @app.get("/api/tts")
-async def text_to_speech_get(text: str = None, lang: str = "ht"):
+async def text_to_speech_get(text: str = None, lang: str = "en"):
+    if lang == "ht":
+        return await _stream_openai(text)
     return await _stream_elevenlabs(text, lang)
 
 @app.post("/api/tts")
 async def text_to_speech_post(req: TTSRequest):
+    if req.lang == "ht":
+        return await _stream_openai(req.text)
     return await _stream_elevenlabs(req.text, req.lang)
+
+async def _stream_openai(input_text: str):
+    """
+    Fallback TTS requests to OpenAI for languages ElevenLabs struggles with (e.g., Haitian Creole).
+    """
+    if not input_text:
+        raise HTTPException(status_code=400, detail="Text is required")
+
+    if not settings.openai_api_key:
+        logger.error("OpenAI API key missing for fallback TTS")
+        raise HTTPException(status_code=503, detail="OpenAI audio not configured")
+
+    payload = {
+        "model": "tts-1",
+        "input": input_text,
+        "voice": "nova",
+        "response_format": "mp3"
+    }
+
+    headers = {
+        "Authorization": f"Bearer {settings.openai_api_key}",
+        "Content-Type": "application/json"
+    }
+
+    async def stream_audio():
+        try:
+            async with httpx.AsyncClient() as client:
+                async with client.stream(
+                    "POST",
+                    "https://api.openai.com/v1/audio/speech",
+                    headers=headers,
+                    json=payload,
+                    timeout=20.0
+                ) as response:
+                    if response.status_code != 200:
+                        await response.aread()
+                        logger.error("OpenAI HTTP error: %s - Body: %s", response.status_code, response.text)
+                    response.raise_for_status()
+                    async for chunk in response.aiter_bytes():
+                        yield chunk
+        except httpx.HTTPStatusError as e:
+            pass
+        except Exception as e:
+            logger.error("OpenAI stream error: %s", e)
+
+    return StreamingResponse(
+        stream_audio(),
+        media_type="audio/mpeg",
+        headers={
+            "Content-Disposition": "inline",
+            "Transfer-Encoding": "chunked"
+        }
+    )
 
 async def _stream_elevenlabs(input_text: str, input_lang: str):
     """
