@@ -852,9 +852,9 @@ function connectWebSocket() {
 }
 
 function speakTranslation(text, lang) {
-  // Ultra-low latency streaming TTS (ElevenLabs Turbo v2.5) via HTTP streaming.
+  // Ultra-low latency streaming TTS via HTTP streaming.
   // We use this as primary to get empathetic, high-fidelity human voices 
-  // without the 2-second block delay of standard cloud APIs.
+  // without the typical block delay of standard cloud APIs.
   playStreamingAudio(text, lang);
 }
 
