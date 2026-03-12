@@ -845,6 +845,7 @@ body::before {
   color: var(--text-muted);
   pointer-events: none;
   z-index: 1;
+  opacity: 0;
   transition: opacity 0.3s, color 0.3s;
 }
 
@@ -867,6 +868,12 @@ body::before {
 .slider-label.active-side svg {
   opacity: 0.8;
   color: var(--accent);
+}
+
+/* Show labels only when thumb is snapped to the opposite side */
+.slider-track:has(.slider-thumb.snapped-right) .slider-label-left,
+.slider-track:has(.slider-thumb.snapped-left) .slider-label-right {
+  opacity: 1;
 }
 
 .slider-thumb {

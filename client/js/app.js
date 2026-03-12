@@ -463,6 +463,10 @@ function snapSlider(side) {
   updateDirectionDisplay();
   highlightActiveLabel();
 
+  // Show the label on the opposite side only (prevents text peeking behind thumb)
+  sliderLabelLeft.style.opacity = (side === 'right') ? '1' : '0';
+  sliderLabelRight.style.opacity = (side === 'left') ? '1' : '0';
+
   var target = (state.selectedLang || 'es').toUpperCase();
   if (side === 'left') {
     sliderHint.textContent = 'EN \u2192 ' + target + '  \u00b7  Hold to speak';
