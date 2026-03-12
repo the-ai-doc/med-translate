@@ -1,0 +1,122 @@
+[
+    {
+        "id": 1,
+        "english": "How can I help you today?",
+        "kreyol": "Kijan mwen ka ede w jodi a?",
+        "category": "medical"
+    },
+    {
+        "id": 2,
+        "english": "The birch canoe slid on the smooth planks.",
+        "kreyol": "Kannot bwa a glise sou planch lis yo.",
+        "category": "phonetic"
+    },
+    {
+        "id": 3,
+        "english": "Where does it hurt?",
+        "kreyol": "Ki kote li fè w mal?",
+        "category": "medical"
+    },
+    {
+        "id": 4,
+        "english": "Glue the sheet to the dark blue background.",
+        "kreyol": "Kole fèy la sou bafon ble fonse a.",
+        "category": "phonetic"
+    },
+    {
+        "id": 5,
+        "english": "On a scale from 1 to 10, how bad is the pain?",
+        "kreyol": "Sou yon echèl 1 a 10, ki jan doulè a mal?",
+        "category": "medical"
+    },
+    {
+        "id": 6,
+        "english": "It's easy to tell the depth of a well.",
+        "kreyol": "Li fasil pou konnen pwofondè yon pi.",
+        "category": "phonetic"
+    },
+    {
+        "id": 7,
+        "english": "Are you allergic to any medications?",
+        "kreyol": "Èske ou fè alèji ak nenpòt medikaman?",
+        "category": "medical"
+    },
+    {
+        "id": 8,
+        "english": "These days a chicken leg is a rare dish.",
+        "kreyol": "Jou sa yo yon pye poul se yon asyèt ra.",
+        "category": "phonetic"
+    },
+    {
+        "id": 9,
+        "english": "Take a deep breath in, and let it out.",
+        "kreyol": "Pran yon gwo souf, epi lage li.",
+        "category": "medical"
+    },
+    {
+        "id": 10,
+        "english": "Rice is often served in round bowls.",
+        "kreyol": "Yo souvan sèvi diri nan bòl won.",
+        "category": "phonetic"
+    },
+    {
+        "id": 11,
+        "english": "I need to check your blood pressure.",
+        "kreyol": "Mwen bezwen tcheke tansyon w.",
+        "category": "medical"
+    },
+    {
+        "id": 12,
+        "english": "The juice of lemons makes fine punch.",
+        "kreyol": "Ji sitwon fè bon kleren.",
+        "category": "phonetic"
+    },
+    {
+        "id": 13,
+        "english": "Are you currently taking any prescription medications?",
+        "kreyol": "Èske w ap pran okenn medikaman preskri kounye a?",
+        "category": "medical"
+    },
+    {
+        "id": 14,
+        "english": "A large size in stockings is hard to sell.",
+        "kreyol": "Yon gwo gwosè nan chosèt difisil pou vann.",
+        "category": "phonetic"
+    },
+    {
+        "id": 15,
+        "english": "When did your symptoms start?",
+        "kreyol": "Ki lè sentòm ou yo te kòmanse?",
+        "category": "medical"
+    },
+    {
+        "id": 16,
+        "english": "The boy was there when the sun rose.",
+        "kreyol": "Ti gason an te la lè solèy la te leve.",
+        "category": "phonetic"
+    },
+    {
+        "id": 17,
+        "english": "Please lie down on the examination table.",
+        "kreyol": "Tanpri kouche sou tab ekzamen an.",
+        "category": "medical"
+    },
+    {
+        "id": 18,
+        "english": "A rod is used to catch pink salmon.",
+        "kreyol": "Yo itilize yon ralonj pou kenbe somon woz.",
+        "category": "phonetic"
+    },
+    {
+        "id": 19,
+        "english": "We need to draw some blood for testing.",
+        "kreyol": "Nou bezwen pran yon ti san pou tès.",
+        "category": "medical"
+    },
+    {
+        "id": 20,
+        "english": "The source of the huge river is the clear spring.",
+        "kreyol": "Sous gwo larivyè a se pye sous dlo klè a.",
+        "category": "phonetic"
+    }
+]
