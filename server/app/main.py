@@ -137,8 +137,13 @@ async def _stream_openai(input_text: str):
 async def _stream_elevenlabs(input_text: str, input_lang: str):
     """
     Proxy TTS requests to ElevenLabs API using HTTP streaming.
-    Streams chunks using eleven_turbo_v2_5 for ultra-low latency.
+    Streams chunks using eleven_flash_v2_5 for ultra-low latency.
     Includes exponential backoff retry on 429/5xx errors.
+
+    PERF NOTES:
+    - Reuses the app-level httpx.AsyncClient to avoid TCP+TLS handshake per call (~50-100ms saved)
+    - Uses mp3_22050_32 (32kbps) instead of mp3_44100_128 — ~4x smaller payload, same speech clarity
+    - output_format is passed as a URL query param (required for the /stream endpoint)
     """
     if not input_text:
         raise HTTPException(status_code=400, detail="Text is required")
@@ -148,13 +153,12 @@ async def _stream_elevenlabs(input_text: str, input_lang: str):
         raise HTTPException(status_code=503, detail="ElevenLabs audio not configured")
 
     # Use George (JBFqnCBsd6RMkjVDRZzb) - a warm, reassuring, English-native voice 
-    # that Eleven Turbo v2.5 can flex into ~32 languages automatically.
+    # that Eleven Flash v2.5 can flex into ~32 languages automatically.
     voice_id = "JBFqnCBsd6RMkjVDRZzb"
 
     payload = {
         "text": input_text,
         "model_id": "eleven_flash_v2_5",
-        "output_format": "mp3_44100_128",
         "voice_settings": {
             "stability": 0.5,
             "similarity_boost": 0.75
@@ -171,33 +175,35 @@ async def _stream_elevenlabs(input_text: str, input_lang: str):
     MAX_RETRIES = 3
     RETRY_BASE_DELAY = 1.0  # seconds
 
+    # Reuse the app-level persistent HTTP client (avoids ~50-100ms TCP+TLS per request)
+    client = app.state.http
+
     async def stream_audio():
         for attempt in range(MAX_RETRIES):
             try:
-                async with httpx.AsyncClient() as client:
-                    async with client.stream(
-                        "POST",
-                        f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream",
-                        headers=headers,
-                        json=payload,
-                        timeout=20.0
-                    ) as response:
-                        if response.status_code == 429 or response.status_code >= 500:
-                            await response.aread()
-                            delay = RETRY_BASE_DELAY * (2 ** attempt)
-                            logger.warning(
-                                "ElevenLabs %s (attempt %d/%d) — retrying in %.1fs",
-                                response.status_code, attempt + 1, MAX_RETRIES, delay
-                            )
-                            await asyncio.sleep(delay)
-                            continue  # retry
-                        if response.status_code != 200:
-                            await response.aread()
-                            logger.error("ElevenLabs HTTP error: %s - Body: %s", response.status_code, response.text)
-                        response.raise_for_status()
-                        async for chunk in response.aiter_bytes():
-                            yield chunk
-                        return  # success, exit retry loop
+                async with client.stream(
+                    "POST",
+                    f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream?output_format=mp3_22050_32",
+                    headers=headers,
+                    json=payload,
+                    timeout=20.0
+                ) as response:
+                    if response.status_code == 429 or response.status_code >= 500:
+                        await response.aread()
+                        delay = RETRY_BASE_DELAY * (2 ** attempt)
+                        logger.warning(
+                            "ElevenLabs %s (attempt %d/%d) — retrying in %.1fs",
+                            response.status_code, attempt + 1, MAX_RETRIES, delay
+                        )
+                        await asyncio.sleep(delay)
+                        continue  # retry
+                    if response.status_code != 200:
+                        await response.aread()
+                        logger.error("ElevenLabs HTTP error: %s - Body: %s", response.status_code, response.text)
+                    response.raise_for_status()
+                    async for chunk in response.aiter_bytes():
+                        yield chunk
+                    return  # success, exit retry loop
             except httpx.HTTPStatusError:
                 if attempt < MAX_RETRIES - 1:
                     delay = RETRY_BASE_DELAY * (2 ** attempt)

@@ -935,7 +935,7 @@ function handlePostSpeech() {
     var transB = document.querySelector('#translated-transcript');
     if (origB) origB.classList.remove('active');
     if (transB) transB.classList.remove('active');
-  }, 2000);
+  }, 600);
 }
 
 function playBrowserVoice(text, lang) {
