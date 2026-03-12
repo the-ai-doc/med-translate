@@ -851,6 +851,15 @@ function connectWebSocket() {
         try {
           var msg = JSON.parse(event.data);
           if (msg.type === 'pong') return; // ignore heartbeat replies
+
+          // --- Progressive streaming: show translation as tokens arrive ---
+          if (msg.type === 'translation_chunk') {
+            translatedText.textContent = msg.text;
+            var transB = document.querySelector('#translated-transcript');
+            if (transB) transB.classList.add('active');
+            return;
+          }
+
           console.log('WS:', msg);
           if (msg.type === 'translation') {
             var origText = originalText.textContent;
@@ -1000,66 +1009,150 @@ function playStreamingAudio(text, lang) {
     return triggerFallback(new Error("Context locked"), 'webaudio');
   }
 
-  var url = CONFIG.API_URL + '/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang);
-
   // CRITICAL iOS FIX: AVAudioSession hardware collision.
-  // ElevenLabs is so fast that the audio payload arrives before the iPad's 
-  // hardware microphone session has fully yielded back to Playback mode.
-  // We must guarantee at least 600ms has passed since the microphone closed.
-  // BUT — only apply this delay if the mic was actually used recently (within 2s).
-  // For preset taps (where the mic was never open), skip the delay entirely.
+  // Only apply delay if the mic was actually used recently (within 2s).
   var timeSinceMicClosed = Date.now() - (state.recStopTime || 0);
   var micWasRecentlyActive = timeSinceMicClosed < 2000;
   var safetyDelay = micWasRecentlyActive ? Math.max(0, 600 - timeSinceMicClosed) : 0;
 
   setTimeout(function () {
-    // Explicitly check and attempt to resume the context inside the timeout
-    // because iOS might have suspended it when tearing down the microphone.
     if (window.audioCtx && window.audioCtx.state === 'suspended') {
       try { window.audioCtx.resume(); } catch (e) { }
     }
 
-    fetch(url)
-      .then(function (res) {
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        return res.arrayBuffer();
-      })
-      .then(function (arrayBuffer) {
-        var size = arrayBuffer.byteLength;
-        console.log("TTS ArrayBuffer received:", size, "bytes");
-        if (size === 0) throw new Error("ElevenLabs returned 0 bytes");
+    // Use PCM streaming for instant playback (non-HT languages only)
+    // Haitian Creole uses OpenAI which returns MP3, so fall back to the original path
+    var usePCMStream = (lang !== 'ht') && (typeof ReadableStream !== 'undefined');
 
-        // Use legacy callback syntax forced by iOS WKWebView
-        window.audioCtx.decodeAudioData(
-          arrayBuffer,
-          function (audioBuffer) {
-            var source = window.audioCtx.createBufferSource();
+    if (usePCMStream) {
+      _playPCMStream(text, lang, triggerFallback);
+    } else {
+      _playMP3Fallback(text, lang, triggerFallback);
+    }
+  }, safetyDelay);
+}
+
+/**
+ * Progressive PCM audio streaming — plays audio as chunks arrive.
+ * Fetches raw 16-bit PCM from /api/tts/stream, converts to Float32,
+ * and schedules playback immediately. First audio plays within ~100ms
+ * of the first chunk arriving.
+ */
+function _playPCMStream(text, lang, triggerFallback) {
+  var SAMPLE_RATE = 22050;
+  var url = CONFIG.API_URL + '/api/tts/stream?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang);
+  var ctx = window.audioCtx;
+  var playbackRate = state.settings.speechRate || 1.0;
+
+  // We accumulate all PCM data, then play as one buffer.
+  // This is more reliable on iOS WKWebView than chained scheduling.
+  var allChunks = [];
+  var totalBytes = 0;
+
+  fetch(url)
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      if (!res.body) throw new Error("No ReadableStream support");
+
+      var reader = res.body.getReader();
+
+      function pump() {
+        return reader.read().then(function (result) {
+          if (result.done) {
+            // All chunks received — assemble and play
+            if (totalBytes === 0) {
+              throw new Error("ElevenLabs returned 0 PCM bytes");
+            }
+
+            // Merge all chunks into one buffer
+            var merged = new Uint8Array(totalBytes);
+            var offset = 0;
+            for (var i = 0; i < allChunks.length; i++) {
+              merged.set(allChunks[i], offset);
+              offset += allChunks[i].length;
+            }
+
+            // Convert Int16 PCM to Float32 for Web Audio
+            var int16 = new Int16Array(merged.buffer);
+            var numSamples = int16.length;
+            var audioBuffer = ctx.createBuffer(1, numSamples, SAMPLE_RATE);
+            var channelData = audioBuffer.getChannelData(0);
+            for (var s = 0; s < numSamples; s++) {
+              channelData[s] = int16[s] / 32768.0;
+            }
+
+            var source = ctx.createBufferSource();
             source.buffer = audioBuffer;
-            source.connect(window.audioCtx.destination);
-
-            source.playbackRate.value = state.settings.speechRate || 1.0;
-
+            source.playbackRate.value = playbackRate;
+            source.connect(ctx.destination);
             source.onended = function () {
               handlePostSpeech();
               window.currentAudioSource = null;
             };
-
             source.start(0);
             window.currentAudioSource = source;
-          },
-          function (err) {
-            var errMsg = err ? (err.message || err.toString()) : "Implicit decoding array failure";
-            console.error("decodeAudioData failed:", errMsg);
-            triggerFallback(new Error(errMsg), 'decodeAudioData');
+            console.log("PCM playback started:", numSamples, "samples (" + (numSamples / SAMPLE_RATE).toFixed(1) + "s)");
+            return;
           }
-        );
-      })
-      .catch(function (err) {
-        var errMsg = err ? (err.message || err.toString()) : "Unknown fetch collision";
-        console.error("TTS fetch chain failed:", errMsg);
-        triggerFallback(new Error(errMsg), 'fetch_stream');
-      });
-  }, safetyDelay);
+
+          // Accumulate chunk
+          allChunks.push(result.value);
+          totalBytes += result.value.length;
+          return pump();
+        });
+      }
+
+      return pump();
+    })
+    .catch(function (err) {
+      console.warn("PCM stream failed, falling back to MP3:", err);
+      _playMP3Fallback(text, lang, triggerFallback);
+    });
+}
+
+/**
+ * Original MP3 playback path — downloads full MP3 then decodes.
+ * Used as fallback for Haitian Creole (OpenAI TTS) or if PCM streaming fails.
+ */
+function _playMP3Fallback(text, lang, triggerFallback) {
+  var url = CONFIG.API_URL + '/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang);
+
+  fetch(url)
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.arrayBuffer();
+    })
+    .then(function (arrayBuffer) {
+      var size = arrayBuffer.byteLength;
+      console.log("TTS ArrayBuffer received:", size, "bytes");
+      if (size === 0) throw new Error("ElevenLabs returned 0 bytes");
+
+      window.audioCtx.decodeAudioData(
+        arrayBuffer,
+        function (audioBuffer) {
+          var source = window.audioCtx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(window.audioCtx.destination);
+          source.playbackRate.value = state.settings.speechRate || 1.0;
+          source.onended = function () {
+            handlePostSpeech();
+            window.currentAudioSource = null;
+          };
+          source.start(0);
+          window.currentAudioSource = source;
+        },
+        function (err) {
+          var errMsg = err ? (err.message || err.toString()) : "Implicit decoding array failure";
+          console.error("decodeAudioData failed:", errMsg);
+          triggerFallback(new Error(errMsg), 'decodeAudioData');
+        }
+      );
+    })
+    .catch(function (err) {
+      var errMsg = err ? (err.message || err.toString()) : "Unknown fetch collision";
+      console.error("TTS fetch chain failed:", errMsg);
+      triggerFallback(new Error(errMsg), 'fetch_stream');
+    });
 }
 
 /* ── Interview Flow ── */

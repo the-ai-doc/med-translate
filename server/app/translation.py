@@ -59,7 +59,7 @@ class TranslationPipeline:
             base_url = "https://" + base_url
         self._api_url = base_url + "/chat/completions"
         self._api_key = settings.riva_api_key
-        self._client = httpx.AsyncClient(timeout=30.0)
+        self._client = httpx.AsyncClient(timeout=15.0)
         logger.info("Translation pipeline initialized (NVIDIA NIM — %s)", self._model)
 
     async def shutdown(self):
@@ -67,13 +67,18 @@ class TranslationPipeline:
             await self._client.aclose()
             logger.info("Translation pipeline shut down")
 
-    async def translate(self, text: str, from_lang: str, to_lang: str) -> str | None:
-        """Translate text between languages. Returns translated string or None on error."""
+    def _build_messages(self, text: str, from_lang: str, to_lang: str) -> list[dict]:
+        """Build the chat messages array for translation."""
         from_name = LANG_NAMES.get(from_lang, from_lang)
         to_name = LANG_NAMES.get(to_lang, to_lang)
-
         user_msg = f"Translate the following text from {from_name} to {to_name}:\n\n{text}"
+        return [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_msg},
+        ]
 
+    async def translate(self, text: str, from_lang: str, to_lang: str) -> str | None:
+        """Translate text between languages. Returns translated string or None on error."""
         try:
             resp = await self._client.post(
                 self._api_url,
@@ -83,12 +88,9 @@ class TranslationPipeline:
                 },
                 json={
                     "model": self._model,
-                    "messages": [
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": user_msg},
-                    ],
+                    "messages": self._build_messages(text, from_lang, to_lang),
                     "temperature": 0.1,
-                    "max_tokens": 512,
+                    "max_tokens": 256,
                 },
             )
 
@@ -115,3 +117,55 @@ class TranslationPipeline:
         except Exception as e:
             logger.error("Translation error: %s", e)
             return None
+
+    async def translate_stream(self, text: str, from_lang: str, to_lang: str):
+        """
+        Stream translation tokens as they arrive from NVIDIA NIM.
+        Yields individual tokens/chunks. The caller can send them
+        to the client immediately for progressive display.
+        
+        On error, yields nothing (caller should handle the empty case).
+        """
+        import json as _json
+
+        try:
+            async with self._client.stream(
+                "POST",
+                self._api_url,
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": self._model,
+                    "messages": self._build_messages(text, from_lang, to_lang),
+                    "temperature": 0.1,
+                    "max_tokens": 256,
+                    "stream": True,
+                },
+            ) as response:
+                if response.status_code != 200:
+                    await response.aread()
+                    logger.error("NIM streaming error %d: %s", response.status_code, response.text[:200])
+                    return
+
+                async for line in response.aiter_lines():
+                    # SSE format: "data: {...}" or "data: [DONE]"
+                    if not line.startswith("data: "):
+                        continue
+                    payload = line[6:]  # strip "data: "
+                    if payload.strip() == "[DONE]":
+                        return
+                    try:
+                        chunk = _json.loads(payload)
+                        delta = chunk.get("choices", [{}])[0].get("delta", {})
+                        token = delta.get("content", "")
+                        if token:
+                            yield token
+                    except _json.JSONDecodeError:
+                        continue
+
+        except httpx.TimeoutException:
+            logger.error("NIM streaming timeout for: %s", text[:40])
+        except Exception as e:
+            logger.error("Streaming translation error: %s", e)

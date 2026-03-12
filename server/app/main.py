@@ -75,6 +75,18 @@ async def text_to_speech_get(text: str = None, lang: str = "en"):
         return await _stream_openai(text)
     return await _stream_elevenlabs(text, lang)
 
+@app.get("/api/tts/stream")
+async def text_to_speech_pcm(text: str = None, lang: str = "en"):
+    """
+    PCM streaming endpoint — returns raw 16-bit signed PCM at 22050Hz.
+    The client can start playing audio immediately as chunks arrive
+    instead of waiting for the full MP3 to download and decode.
+    Falls back to the MP3 endpoint for Haitian Creole (OpenAI doesn't support PCM streaming).
+    """
+    if lang == "ht":
+        return await _stream_openai(text)
+    return await _stream_elevenlabs_pcm(text, lang)
+
 @app.post("/api/tts")
 async def text_to_speech_post(req: TTSRequest):
     if req.lang == "ht":
@@ -221,6 +233,67 @@ async def _stream_elevenlabs(input_text: str, input_lang: str):
         headers={
             "Content-Disposition": "inline",
             "Transfer-Encoding": "chunked"
+        }
+    )
+
+
+async def _stream_elevenlabs_pcm(input_text: str, input_lang: str):
+    """
+    Stream raw PCM audio (16-bit signed, 22050Hz, mono) from ElevenLabs.
+    The client reads chunks via ReadableStream and plays them instantly
+    through Web Audio API — no MP3 decode step needed.
+    """
+    if not input_text:
+        raise HTTPException(status_code=400, detail="Text is required")
+
+    if not settings.elevenlabs_api_key:
+        raise HTTPException(status_code=503, detail="ElevenLabs audio not configured")
+
+    voice_id = "JBFqnCBsd6RMkjVDRZzb"  # George
+
+    payload = {
+        "text": input_text,
+        "model_id": "eleven_flash_v2_5",
+        "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.75
+        }
+    }
+
+    headers = {
+        "xi-api-key": settings.elevenlabs_api_key,
+        "Content-Type": "application/json"
+    }
+
+    client = app.state.http
+
+    async def stream_pcm():
+        try:
+            async with client.stream(
+                "POST",
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream?output_format=pcm_22050",
+                headers=headers,
+                json=payload,
+                timeout=20.0
+            ) as response:
+                if response.status_code != 200:
+                    await response.aread()
+                    logger.error("ElevenLabs PCM error: %s", response.status_code)
+                    return
+                response.raise_for_status()
+                async for chunk in response.aiter_bytes():
+                    yield chunk
+        except Exception as e:
+            logger.error("ElevenLabs PCM stream error: %s", e)
+
+    return StreamingResponse(
+        stream_pcm(),
+        media_type="audio/L16",
+        headers={
+            "Content-Disposition": "inline",
+            "Transfer-Encoding": "chunked",
+            "X-Sample-Rate": "22050",
+            "Access-Control-Expose-Headers": "X-Sample-Rate",
         }
     )
 
@@ -422,16 +495,38 @@ async def translation_session(ws: WebSocket):
                     })
                     continue
 
-                translation = await pipeline.translate(text, from_lang, to_lang)
+                # --- Stream translation tokens to client ---
+                full_translation = ""
+                token_count = 0
+                async for token in pipeline.translate_stream(text, from_lang, to_lang):
+                    full_translation += token
+                    token_count += 1
+                    # Send every token as a chunk for progressive display
+                    await ws.send_json({
+                        "type": "translation_chunk",
+                        "text": full_translation,
+                        "token": token,
+                    })
 
-                if translation:
-                    _cache_set(ckey, translation)
+                if full_translation:
+                    # Clean up any wrapping the model might add
+                    cleaned = full_translation.strip()
+                    for prefix in ['"', "'", "Translation:", "Translated:"]:
+                        if cleaned.startswith(prefix):
+                            cleaned = cleaned[len(prefix):]
+                    for suffix in ['"', "'"]:
+                        if cleaned.endswith(suffix):
+                            cleaned = cleaned[:-len(suffix)]
+                    cleaned = cleaned.strip()
+
+                    _cache_set(ckey, cleaned)
+                    # Send final complete translation
                     await ws.send_json({
                         "type": "translation",
                         "original": text,
-                        "text": translation,
+                        "text": cleaned,
                     })
-                    logger.info("Translation sent: %s", translation[:60])
+                    logger.info("Streamed %d tokens: %s", token_count, cleaned[:60])
                 else:
                     await ws.send_json({
                         "type": "error",
