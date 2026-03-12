@@ -22,6 +22,10 @@ var LANGUAGES = {
   ar: { name: 'Arabic', speechCode: 'ar-SA' },
   vi: { name: 'Vietnamese', speechCode: 'vi-VN' },
   tl: { name: 'Tagalog', speechCode: 'tl-PH' },
+  hi: { name: 'Hindi', speechCode: 'hi-IN' },
+  ur: { name: 'Urdu', speechCode: 'ur-PK' },
+  ja: { name: 'Japanese', speechCode: 'ja-JP' },
+  de: { name: 'German', speechCode: 'de-DE' },
   en: { name: 'English', speechCode: 'en-US' }
 };
 

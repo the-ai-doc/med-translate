@@ -20,6 +20,10 @@ LANG_NAMES = {
     "tl": "Tagalog",
     "pt": "Portuguese",
     "ht": "Haitian Creole",
+    "hi": "Hindi",
+    "ur": "Urdu",
+    "ja": "Japanese",
+    "de": "German",
 }
 
 SYSTEM_PROMPT = (
