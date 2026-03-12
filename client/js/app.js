@@ -56,6 +56,59 @@ var state = {
 
 var audioUnlocked = false;
 
+/* ── Connection Pre-warming ──
+ * Fire a lightweight /health request the moment the page loads.
+ * This wakes up Railway's cold-start container BEFORE the user
+ * ever touches the mic, eliminating the 2-3s first-request delay.
+ */
+function prewarmConnection() {
+  fetch(CONFIG.API_URL + '/health', { method: 'GET', mode: 'cors' })
+    .then(function () { console.log('Backend pre-warmed'); })
+    .catch(function () { console.warn('Pre-warm failed (backend may cold start on first use)'); });
+}
+
+/* ── Offline / Connection-Lost Banner ──
+ * Shows a non-intrusive but visible red bar at the top of the screen
+ * whenever the WebSocket drops or the browser goes offline.
+ * Auto-dismisses the moment connectivity is restored.
+ */
+function injectOfflineBanner() {
+  var banner = document.createElement('div');
+  banner.id = 'offline-banner';
+  banner.textContent = 'Connection lost — reconnecting…';
+  banner.style.cssText =
+    'display:none; position:fixed; top:0; left:0; right:0; z-index:9999; ' +
+    'padding:10px 16px; background:#e74c3c; color:#fff; text-align:center; ' +
+    'font-size:14px; font-weight:600; letter-spacing:0.3px; ' +
+    'box-shadow:0 2px 8px rgba(0,0,0,0.3); transition:transform 0.3s ease;';
+  document.body.prepend(banner);
+}
+
+function showOfflineBanner(message) {
+  var banner = document.getElementById('offline-banner');
+  if (banner) {
+    banner.textContent = message || 'Connection lost — reconnecting…';
+    banner.style.display = 'block';
+  }
+}
+
+function hideOfflineBanner() {
+  var banner = document.getElementById('offline-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+// Listen for the browser itself going offline / online
+window.addEventListener('offline', function () {
+  showOfflineBanner('You are offline — check your internet connection');
+});
+window.addEventListener('online', function () {
+  hideOfflineBanner();
+  // If we have an active session, try to reconnect immediately
+  if (state.session.active && (!state.ws.socket || state.ws.socket.readyState !== WebSocket.OPEN)) {
+    connectWebSocket().catch(function (e) { console.warn('Auto-reconnect failed:', e); });
+  }
+});
+
 // Initialize a persistent HTML5 audio tag for iOS streaming.
 window.currentAudioSource = null;
 
@@ -773,6 +826,7 @@ function connectWebSocket() {
         state.ws.connected = true;
         state.ws.reconnectAttempts = 0;
         connectionDot.classList.remove('disconnected');
+        hideOfflineBanner();
         startHeartbeat(ws);
         ws.send(JSON.stringify({
           type: 'start_session',
@@ -835,6 +889,7 @@ function connectWebSocket() {
         state.ws.connected = false;
         stopHeartbeat();
         connectionDot.classList.add('disconnected');
+        showOfflineBanner();
         if (state.session.active) {
           state.ws.reconnectAttempts++;
           var delay = Math.min(
@@ -1173,6 +1228,8 @@ function initReplay() {
 
 function init() {
   cacheDom();
+  injectOfflineBanner();
+  prewarmConnection();
   initContextDrawer();
   initSessionControls();
   initPresetsMenu();

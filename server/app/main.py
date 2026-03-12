@@ -59,6 +59,7 @@ async def health():
         "status": "healthy",
         "service": "MedTranslate",
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "cache_size": len(_translation_cache) if '_translation_cache' in dir() else 0,
     }
 
 
