@@ -137,6 +137,7 @@ async def _stream_elevenlabs(input_text: str, input_lang: str):
     """
     Proxy TTS requests to ElevenLabs API using HTTP streaming.
     Streams chunks using eleven_turbo_v2_5 for ultra-low latency.
+    Includes exponential backoff retry on 429/5xx errors.
     """
     if not input_text:
         raise HTTPException(status_code=400, detail="Text is required")
@@ -163,32 +164,49 @@ async def _stream_elevenlabs(input_text: str, input_lang: str):
         "xi-api-key": settings.elevenlabs_api_key,
         "Content-Type": "application/json"
     }
-    
-    key_debug = settings.elevenlabs_api_key
-    logger.info(f"ElevenLabs Auth Check - Key Length: {len(key_debug)}, Prefix: {key_debug[:5]}...")
+
+    import asyncio
+
+    MAX_RETRIES = 3
+    RETRY_BASE_DELAY = 1.0  # seconds
 
     async def stream_audio():
-        try:
-            # Open a streaming connection to ElevenLabs and yield raw bytes
-            # instantly as they arrive, enabling sub-250ms playback.
-            async with httpx.AsyncClient() as client:
-                async with client.stream(
-                    "POST",
-                    f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream",
-                    headers=headers,
-                    json=payload,
-                    timeout=20.0
-                ) as response:
-                    if response.status_code != 200:
-                        await response.aread()
-                        logger.error("ElevenLabs HTTP error: %s - Body: %s", response.status_code, response.text)
-                    response.raise_for_status()
-                    async for chunk in response.aiter_bytes():
-                        yield chunk
-        except httpx.HTTPStatusError as e:
-            pass # Already logged inside the stream block
-        except Exception as e:
-            logger.error("ElevenLabs stream error: %s", e)
+        for attempt in range(MAX_RETRIES):
+            try:
+                async with httpx.AsyncClient() as client:
+                    async with client.stream(
+                        "POST",
+                        f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream",
+                        headers=headers,
+                        json=payload,
+                        timeout=20.0
+                    ) as response:
+                        if response.status_code == 429 or response.status_code >= 500:
+                            await response.aread()
+                            delay = RETRY_BASE_DELAY * (2 ** attempt)
+                            logger.warning(
+                                "ElevenLabs %s (attempt %d/%d) — retrying in %.1fs",
+                                response.status_code, attempt + 1, MAX_RETRIES, delay
+                            )
+                            await asyncio.sleep(delay)
+                            continue  # retry
+                        if response.status_code != 200:
+                            await response.aread()
+                            logger.error("ElevenLabs HTTP error: %s - Body: %s", response.status_code, response.text)
+                        response.raise_for_status()
+                        async for chunk in response.aiter_bytes():
+                            yield chunk
+                        return  # success, exit retry loop
+            except httpx.HTTPStatusError:
+                if attempt < MAX_RETRIES - 1:
+                    delay = RETRY_BASE_DELAY * (2 ** attempt)
+                    logger.warning("ElevenLabs HTTP error on attempt %d, retrying in %.1fs", attempt + 1, delay)
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error("ElevenLabs failed after %d attempts", MAX_RETRIES)
+            except Exception as e:
+                logger.error("ElevenLabs stream error: %s", e)
+                return  # non-retryable error
 
     return StreamingResponse(
         stream_audio(),
@@ -297,6 +315,32 @@ async def add_custom_phrase(pin: str = Form(...), phrase: str = Form(...)):
         res = await client.post(url, headers=headers, json=payload)
         res.raise_for_status()
     return {"status": "success"}
+# ── In-memory translation cache (LRU-style, bounded) ────────────────
+from collections import OrderedDict
+import time as _time
+
+_translation_cache: OrderedDict[str, str] = OrderedDict()
+_CACHE_MAX_SIZE = 200
+
+def _cache_key(text: str, from_lang: str, to_lang: str) -> str:
+    return f"{from_lang}:{to_lang}:{text.strip().lower()}"
+
+def _cache_get(key: str) -> str | None:
+    if key in _translation_cache:
+        _translation_cache.move_to_end(key)
+        return _translation_cache[key]
+    return None
+
+def _cache_set(key: str, value: str):
+    _translation_cache[key] = value
+    if len(_translation_cache) > _CACHE_MAX_SIZE:
+        _translation_cache.popitem(last=False)
+
+
+# ── Rate limiter constants ──────────────────────────────────────────
+_WS_MAX_TRANSLATIONS_PER_MINUTE = 20
+
+
 @app.websocket("/ws")
 async def translation_session(ws: WebSocket):
     """
@@ -316,6 +360,9 @@ async def translation_session(ws: WebSocket):
     pipeline = app.state.translation
     sessions = app.state.sessions
     audit = app.state.audit
+
+    # Per-connection rate limiter
+    translate_timestamps: list[float] = []
 
     logger.info("WebSocket connected")
 
@@ -342,11 +389,36 @@ async def translation_session(ws: WebSocket):
                 if not text:
                     continue
 
+                # --- Rate limiting ---
+                now = _time.monotonic()
+                translate_timestamps[:] = [t for t in translate_timestamps if now - t < 60]
+                if len(translate_timestamps) >= _WS_MAX_TRANSLATIONS_PER_MINUTE:
+                    logger.warning("Rate limit hit for session %s", sid[:8] if sid else "?")
+                    await ws.send_json({
+                        "type": "error",
+                        "message": "Too many requests — please slow down",
+                    })
+                    continue
+                translate_timestamps.append(now)
+
                 logger.info("Translating [%s->%s]: %s", from_lang, to_lang, text[:60])
+
+                # --- Check translation cache ---
+                ckey = _cache_key(text, from_lang, to_lang)
+                cached = _cache_get(ckey)
+                if cached:
+                    logger.info("Cache HIT for: %s", text[:40])
+                    await ws.send_json({
+                        "type": "translation",
+                        "original": text,
+                        "text": cached,
+                    })
+                    continue
 
                 translation = await pipeline.translate(text, from_lang, to_lang)
 
                 if translation:
+                    _cache_set(ckey, translation)
                     await ws.send_json({
                         "type": "translation",
                         "original": text,
@@ -375,3 +447,4 @@ async def translation_session(ws: WebSocket):
     finally:
         if session_id:
             await sessions.end(session_id)
+
