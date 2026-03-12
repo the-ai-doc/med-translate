@@ -153,7 +153,7 @@ async def _stream_elevenlabs(input_text: str, input_lang: str):
 
     payload = {
         "text": input_text,
-        "model_id": "eleven_turbo_v2_5",
+        "model_id": "eleven_flash_v2_5",
         "output_format": "mp3_44100_128",
         "voice_settings": {
             "stability": 0.5,
