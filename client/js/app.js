@@ -1006,8 +1006,11 @@ function playStreamingAudio(text, lang) {
   // ElevenLabs is so fast that the audio payload arrives before the iPad's 
   // hardware microphone session has fully yielded back to Playback mode.
   // We must guarantee at least 600ms has passed since the microphone closed.
+  // BUT — only apply this delay if the mic was actually used recently (within 2s).
+  // For preset taps (where the mic was never open), skip the delay entirely.
   var timeSinceMicClosed = Date.now() - (state.recStopTime || 0);
-  var safetyDelay = Math.max(0, 600 - timeSinceMicClosed);
+  var micWasRecentlyActive = timeSinceMicClosed < 2000;
+  var safetyDelay = micWasRecentlyActive ? Math.max(0, 600 - timeSinceMicClosed) : 0;
 
   setTimeout(function () {
     // Explicitly check and attempt to resume the context inside the timeout
