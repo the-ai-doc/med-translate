@@ -133,7 +133,7 @@ async def _stream_openai(input_text: str):
                     async for chunk in response.aiter_bytes():
                         yield chunk
         except httpx.HTTPStatusError as e:
-            pass
+            logger.error("OpenAI TTS HTTP error: %s", e)
         except Exception as e:
             logger.error("OpenAI stream error: %s", e)
 
